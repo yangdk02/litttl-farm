@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function uid() { return request.auth.uid; }
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function text(v, n) { return v is string && v.size() > 0 && v.size() <= n; }
+    function admin() { return signedIn() && request.auth.token.email == 'yangdk02@gmail.com'; }
+    function member(treeId) { return signedIn() && uid() in get(/databases/$(database)/documents/trees/$(treeId)).data.members; }
+    function isValidUser(data) {
+      return data.keys().hasOnly(['nick', 'email', 'treeId', 'invites', 'lastCloudAt', 'lastDiaryReplyDate', 'tutorialSeen', 'seed'])
+        && (!data.keys().hasAny(['nick']) || (data.nick is string && data.nick.size() <= 20))
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 120))
+        && (!data.keys().hasAny(['treeId']) || data.treeId == null || isValidId(data.treeId))
+        && (!data.keys().hasAny(['invites']) || data.invites is map)
+        && (!data.keys().hasAny(['lastCloudAt']) || data.lastCloudAt is int)
+        && (!data.keys().hasAny(['lastDiaryReplyDate']) || (data.lastDiaryReplyDate is string && data.lastDiaryReplyDate.size() <= 20))
+        && (!data.keys().hasAny(['tutorialSeen']) || data.tutorialSeen is bool)
+        && (!data.keys().hasAny(['seed']) || data.seed is bool);
+    }
+    function isValidCloud(data) {
+      return data.keys().hasAll(['text', 'uid', 'ts', 'treeId'])
+        && data.keys().hasOnly(['text', 'fromName', 'uid', 'ts', 'treeId', 'f', 'n', 'virtual', 'evergreen', 'seed'])
+        && text(data.text, 20)
+        && data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128
+        && data.ts is int
+        && isValidId(data.treeId)
+        && (!data.keys().hasAny(['fromName']) || (data.fromName is string && data.fromName.size() <= 30))
+        && (!data.keys().hasAny(['f']) || data.f is int)
+        && (!data.keys().hasAny(['n']) || data.n is int)
+        && (!data.keys().hasAny(['virtual']) || data.virtual is bool)
+        && (!data.keys().hasAny(['evergreen']) || data.evergreen is bool)
+        && (!data.keys().hasAny(['seed']) || data.seed is bool);
+    }
+
+    match /test/connection {
+      allow get: if true;
+    }
+
+    match /users/{id} {
+      allow get: if (request.auth != null && uid() == id) || admin();
+      allow list: if admin();
+      allow create: if (signedIn() && isValidId(id) && uid() == id
+        && isValidUser(request.resource.data)
+        && request.resource.data.email == request.auth.token.email)
+        || (admin() && isValidId(id) && id.matches('^seed-.*'));
+      allow update: if (signedIn() && isValidId(id) && uid() == id
+        && isValidUser(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nick','treeId','invites','lastCloudAt','lastDiaryReplyDate','tutorialSeen']))
+        || (admin() && isValidId(id) && id.matches('^seed-.*'));
+      allow delete: if (request.auth != null && isValidId(id) && uid() == id)
+        || (admin() && isValidId(id) && id != uid());
+    }
+
+    match /trees/{id} {
+      allow read: if true;
+      allow create: if (signedIn() && isValidId(id)
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.members == [uid()]
+        && request.resource.data.id == id
+        && get(/databases/$(database)/documents/users/$(uid())).data.treeId == null)
+        || (admin() && isValidId(id) && id.matches('^virtual-seed-.*'));
+      allow delete: if (signedIn() && isValidId(id) && resource.data.ownerUid == uid())
+        || (admin() && isValidId(id));
+      allow update: if signedIn() && isValidId(id) && (
+        (uid() in resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name','intro','story','basket','fruit','bugs','bugRuleVersion','t','pin','lastAct','chars','members','ownerUid'
+          ]))
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hearts'])
+            && request.resource.data.hearts == resource.data.hearts + 1)
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'chars', 'joinCode'])
+            && uid() in request.resource.data.members
+            && (get(/databases/$(database)/documents/users/$(uid())).data.treeId == null
+              || get(/databases/$(database)/documents/users/$(uid())).data.treeId == id)
+            && get(/databases/$(database)/documents/invites/$(request.resource.data.joinCode)).data.treeId == id)
+        || (admin() && id.matches('^virtual-seed-.*'))
+      );
+
+      match /hearts/{key} {
+        allow read: if true;
+        allow create: if signedIn() && isValidId(key) && request.resource.data.uid == uid()
+          && key.matches('^' + uid() + '_[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+        allow delete: if signedIn() && isValidId(key) && (
+          resource.data.uid == uid()
+          || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid()
+          || admin()
+        );
+      }
+
+      match /messages/{messageId} {
+        allow read: if true;
+        allow create: if signedIn() && isValidId(messageId)
+          && text(request.resource.data.text, 100)
+          && (request.resource.data.uid == uid()
+            || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid());
+        allow delete: if signedIn() && isValidId(messageId) && (
+          resource.data.uid == uid()
+          || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid()
+          || admin()
+        );
+      }
+
+      match /presence/{memberId} {
+        allow read: if true;
+        allow write: if signedIn() && isValidId(memberId) && (
+          uid() == memberId
+          || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid()
+          || admin()
+        );
+      }
+
+      match /diary/{day} {
+        allow read: if member(id) || admin();
+        allow create: if member(id) && isValidId(day)
+          && request.resource.data.keys().hasOnly(['date','icon','text','createdAt','replyReadyAt','replyGenerated','comment','uid','authorName'])
+          && request.resource.data.uid == uid()
+          && request.resource.data.date is string
+          && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (day == request.resource.data.date + '__' + uid() || admin())
+          && text(request.resource.data.text, 2000)
+          && (!request.resource.data.keys().hasAny(['comment']) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000))
+          && (!request.resource.data.keys().hasAny(['replyReadyAt']) || request.resource.data.replyReadyAt is int)
+          && (!request.resource.data.keys().hasAny(['replyGenerated']) || request.resource.data.replyGenerated is bool)
+          && (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is int);
+        allow update: if member(id) && isValidId(day)
+          && request.resource.data.keys().hasOnly(['date','icon','text','createdAt','replyReadyAt','replyGenerated','comment','uid','authorName'])
+          && request.resource.data.uid == uid()
+          && resource.data.uid == uid()
+          && request.resource.data.date == resource.data.date
+          && text(request.resource.data.text, 2000)
+          && (!request.resource.data.keys().hasAny(['comment']) || (request.resource.data.comment is string && request.resource.data.comment.size() <= 1000))
+          && (!request.resource.data.keys().hasAny(['replyReadyAt']) || request.resource.data.replyReadyAt is int)
+          && (!request.resource.data.keys().hasAny(['replyGenerated']) || request.resource.data.replyGenerated is bool)
+          && (
+            admin()
+            || (
+              (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt)
+              && (!resource.data.keys().hasAny(['comment']) || resource.data.comment.size() == 0 || request.resource.data.comment == resource.data.comment)
+              && (!resource.data.keys().hasAny(['replyReadyAt']) || request.resource.data.replyReadyAt == resource.data.replyReadyAt)
+              && (!resource.data.keys().hasAny(['replyGenerated']) || request.resource.data.replyGenerated == resource.data.replyGenerated)
+            )
+          );
+        allow delete: if isValidId(day) && (
+          (member(id) && (
+            resource.data.uid == uid()
+            || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid()
+          ))
+          || admin()
+        );
+      }
+    }
+
+    match /clouds/{cloudId} {
+      allow read: if true;
+      allow create: if (signedIn() && isValidId(cloudId)
+        && isValidCloud(request.resource.data)
+        && request.resource.data.uid == uid()
+        && (!request.resource.data.keys().hasAny(['evergreen']) || request.resource.data.evergreen == false || admin())
+        && (admin()
+          || !get(/databases/$(database)/documents/users/$(uid())).data.keys().hasAny(['lastCloudAt'])
+          || get(/databases/$(database)/documents/users/$(uid())).data.lastCloudAt <= request.resource.data.ts - 86400000)
+        && getAfter(/databases/$(database)/documents/users/$(uid())).data.lastCloudAt == request.resource.data.ts)
+        || (admin() && isValidId(cloudId) && isValidCloud(request.resource.data) && cloudId.matches('^seed-.*'));
+      allow update: if admin() && isValidId(cloudId) && isValidCloud(request.resource.data) && cloudId.matches('^seed-.*');
+      allow delete: if isValidId(cloudId) && (
+        (signedIn() && (
+          resource.data.uid == uid()
+          || (resource.data.treeId is string
+            && exists(/databases/$(database)/documents/trees/$(resource.data.treeId))
+            && get(/databases/$(database)/documents/trees/$(resource.data.treeId)).data.ownerUid == uid())
+          || ((!resource.data.keys().hasAny(['evergreen']) || resource.data.evergreen == false)
+            && resource.data.ts is int
+            && resource.data.ts <= request.time.toMillis() - 86400000)
+        ))
+        || admin()
+      );
+    }
+
+    match /invites/{code} {
+      allow get: if signedIn() && isValidId(code);
+      allow list: if signedIn() && (resource.data.ownerUid == uid() || admin());
+      allow create: if signedIn() && isValidId(code) && (
+        (request.resource.data.kind == 'physical' && admin())
+        || (request.resource.data.kind != 'physical'
+          && request.resource.data.treeId is string
+          && (!get(/databases/$(database)/documents/trees/$(request.resource.data.treeId)).data.keys().hasAny(['virtual'])
+            || get(/databases/$(database)/documents/trees/$(request.resource.data.treeId)).data.virtual == false)
+          && member(request.resource.data.treeId))
+      );
+      allow delete: if signedIn() && isValidId(code);
+    }
+  }
+}

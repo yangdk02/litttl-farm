@@ -1,0 +1,8 @@
+node_modules/
+.firebase/
+.env.firebase
+firebase-debug.log
+firebase-debug.*.log
+back/wrangler.toml
+.wrangler/
+

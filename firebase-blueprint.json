@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account and tree membership state.",
+      "type": "object",
+      "properties": {
+        "nick": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "treeId": { "type": "string", "maxLength": 128 },
+        "invites": { "type": "object" },
+        "lastCloudAt": { "type": "integer" },
+        "lastDiaryReplyDate": { "type": "string", "maxLength": 20 },
+        "tutorialSeen": { "type": "boolean" },
+        "seed": { "type": "boolean" }
+      },
+      "required": ["email"]
+    },
+    "Tree": {
+      "title": "Tree",
+      "description": "A tangerine tree owned and cared for by one or up to four family members.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "f": { "type": "integer" },
+        "n": { "type": "integer" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "members": { "type": "array" },
+        "name": { "type": "string", "maxLength": 24 },
+        "intro": { "type": "string", "maxLength": 80 },
+        "story": { "type": "string", "maxLength": 600 },
+        "basket": { "type": "integer" },
+        "fruit": { "type": "integer" },
+        "bugs": { "type": "integer" },
+        "bugRuleVersion": { "type": "integer" },
+        "t": { "type": "object" },
+        "hearts": { "type": "integer" },
+        "pin": { "type": "object" },
+        "lastAct": { "type": "object" },
+        "chars": { "type": "array" },
+        "virtual": { "type": "boolean" },
+        "seed": { "type": "boolean" },
+        "joinCode": { "type": "string", "maxLength": 24 }
+      },
+      "required": ["id", "f", "n", "ownerUid", "members"]
+    },
+    "TreeHeart": {
+      "title": "TreeHeart",
+      "description": "Daily heart cheer record left by a signed-in user on a tree.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "day": { "type": "string", "maxLength": 20 }
+      },
+      "required": ["uid", "day"]
+    },
+    "TreeMessage": {
+      "title": "TreeMessage",
+      "description": "Cheer message left on a tree.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "fromName": { "type": "string", "maxLength": 30 },
+        "text": { "type": "string", "maxLength": 100 },
+        "ts": { "type": "integer" }
+      },
+      "required": ["uid", "text", "ts"]
+    },
+    "TreePresence": {
+      "title": "TreePresence",
+      "description": "Live member presence heartbeat for a tree.",
+      "type": "object",
+      "properties": {
+        "at": { "type": "integer" }
+      },
+      "required": ["at"]
+    },
+    "DiaryEntry": {
+      "title": "DiaryEntry",
+      "description": "Private family diary entry for a tree.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "maxLength": 20 },
+        "icon": { "type": "string", "maxLength": 24 },
+        "text": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "integer" },
+        "replyReadyAt": { "type": "integer" },
+        "replyGenerated": { "type": "boolean" },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["date", "icon", "text", "uid"]
+    },
+    "Cloud": {
+      "title": "Cloud",
+      "description": "24-hour floating message cloud in the sky.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 20 },
+        "fromName": { "type": "string", "maxLength": 30 },
+        "uid": { "type": "string", "maxLength": 128 },
+        "ts": { "type": "integer" },
+        "treeId": { "type": "string", "maxLength": 128 },
+        "f": { "type": "integer" },
+        "n": { "type": "integer" },
+        "virtual": { "type": "boolean" },
+        "evergreen": { "type": "boolean" },
+        "seed": { "type": "boolean" }
+      },
+      "required": ["text", "uid", "ts", "treeId"]
+    },
+    "Invite": {
+      "title": "Invite",
+      "description": "Invite or physical tree redemption code.",
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string", "maxLength": 20 },
+        "treeId": { "type": "string", "maxLength": 128 },
+        "charId": { "type": "string", "maxLength": 64 },
+        "f": { "type": "integer" },
+        "n": { "type": "integer" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "ownerUid": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["treeId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user document owned by the authenticated user."
+    },
+    "/trees/{treeId}": {
+      "schema": { "$ref": "#/entities/Tree" },
+      "description": "Publicly viewable tree profile and state."
+    },
+    "/trees/{treeId}/hearts/{heartId}": {
+      "schema": { "$ref": "#/entities/TreeHeart" },
+      "description": "Daily cheer heart logs per tree."
+    },
+    "/trees/{treeId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/TreeMessage" },
+      "description": "Cheer messages left on a tree."
+    },
+    "/trees/{treeId}/presence/{memberId}": {
+      "schema": { "$ref": "#/entities/TreePresence" },
+      "description": "Active member presence timestamps."
+    },
+    "/trees/{treeId}/diary/{dayId}": {
+      "schema": { "$ref": "#/entities/DiaryEntry" },
+      "description": "Family-private daily diary entries."
+    },
+    "/clouds/{cloudId}": {
+      "schema": { "$ref": "#/entities/Cloud" },
+      "description": "24-hour floating message clouds."
+    },
+    "/invites/{code}": {
+      "schema": { "$ref": "#/entities/Invite" },
+      "description": "Tree connection and family invite codes."
+    }
+  }
+}

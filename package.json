@@ -1,0 +1,27 @@
+{
+  "name": "litttl-farm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node scripts/build-production.mjs",
+    "lint": "node --check server.js && node --check scripts/build-production.mjs && node --check front/js/config.js && node --check front/js/filter.js && node --check front/js/backend.js && node --check front/js/app.js",
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "preview:local": "npm run build && firebase emulators:start --only hosting",
+    "deploy:preview": "npm run build && npm run check:deploy && firebase hosting:channel:deploy preview",
+    "deploy": "npm run build && npm run check:deploy && firebase deploy --only hosting,firestore:rules"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.36.0"
+  },
+  "dependencies": {
+    "@google/genai": "^3.4.0",
+    "express": "^5.3.0",
+    "firebase-admin": "^14.5.1"
+  }
+}

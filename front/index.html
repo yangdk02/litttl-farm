@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LITTTL. FARM.</title>
+<script src="./js/config.js"></script>
+
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body data-page="scene" data-mode="out">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="paint" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency=".022" numOctaves="3" seed="7" result="wave"/><feDisplacementMap in="SourceGraphic" in2="wave" scale="20" xChannelSelector="R" yChannelSelector="G" result="shape"/><feTurbulence type="fractalNoise" baseFrequency=".28 .4" numOctaves="3" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 1.42" result="grain"/><feComposite in="shape" in2="grain" operator="in"/></filter>
+  <filter id="paintBase" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency=".022" numOctaves="3" seed="7" result="wave"/><feDisplacementMap in="SourceGraphic" in2="wave" scale="20" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="rough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="11" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4"/></filter>
+</defs></svg>
+
+<main id="scene">
+  <button class="homeLogo" id="homeLogo" aria-label="첫 화면으로"><img src="./assets/브랜드-워드마크.png" alt="LITTTL."></button>
+  <div id="sky" aria-label="사람들이 띄운 구름"></div>
+  <div id="linkClouds" aria-label="엉클리틀 링크 모음"></div>
+  <div id="horizon" aria-hidden="true"></div>
+  <div id="ground" aria-hidden="true"><svg viewBox="0 0 1000 30" preserveAspectRatio="none"><path d="M-5 16C90 9 170 21 290 15S480 8 610 16 830 22 1005 13" fill="none" stroke="#000" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linecap="round"/></svg></div>
+  <div id="world"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="fog" aria-hidden="true"></div>
+
+  <header id="top">
+    <div id="who">
+      <button class="big off" id="back" hidden>← 뒤로</button>
+      <button id="place" aria-label="날씨 보기"></button>
+    </div>
+    <div id="counts">
+      <button class="big" id="login" hidden>로그인</button>
+      <button id="help" aria-label="사용 방법" title="사용 방법">?</button>
+      <button id="menu" aria-label="설정" title="설정" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></button>
+    </div>
+  </header>
+
+  <div id="treeStats" aria-label="나무 기록">
+    <div class="count" id="basket" title="딴 귤"></div>
+    <button class="count" id="hearts" aria-label="응원 보기"></button>
+  </div>
+
+  <nav class="side" id="left" aria-label="이동"></nav>
+  <nav class="side" id="right" aria-label="나무 돌보기"></nav>
+
+  <footer id="bottom">
+    <div id="visitBar" hidden><p id="visitIntro"></p><button class="big" id="heartBtn"></button></div>
+    <div id="emptyBar" hidden></div>
+  </footer>
+  <footer id="siteFooter">
+    <nav class="footerLinks" aria-label="회사와 법적 안내"><a href="https://litttl.com/ourstory.html" target="_blank" rel="noopener">회사소개</a><a href="#terms" data-legal="terms">이용약관</a><a href="#privacy" data-legal="privacy">개인정보처리방침</a><a href="mailto:unclelitttl@gmail.com">문의</a></nav>
+    <div class="footerGrid">
+      <section><h3>CONTACT</h3><p><a href="mailto:unclelitttl@gmail.com">unclelitttl@gmail.com</a><br><a href="tel:0647555060">064-755-5060</a><br><a href="https://pf.kakao.com/_ctxlxej" target="_blank" rel="noopener">카카오톡채널</a><br><a href="https://www.instagram.com/uncle.litttl1988/" target="_blank" rel="noopener">Instagram</a><br><a href="https://pf.kakao.com/_ctxlxej" target="_blank" rel="noopener">KakaoTalk Channel</a></p></section>
+      <section><h3>LOCATION</h3><p>OFFLINE SHOP/KITCHEN 제주 서귀포시 일주서로2048번길 156-5<br>FARM 제주 서귀포시 보성상로 88<br>STAY 제주 서귀포시 덕수회관로 102</p></section>
+      <section><h3>COMPANY</h3><p>리틀(주)농업회사법인<br>대표 양성순<br>사업자등록번호 459-87-01949<br>개인정보관리책임자 양성순</p></section>
+    </div>
+    <p class="footerMeta">© UNCLE.LITTTL. All Rights Reserved.</p>
+  </footer>
+</main>
+
+<section id="mapPage" hidden>
+  <header id="mapHead">
+    <button class="big off" id="mapBackBtn">← 뒤로</button>
+    <button class="logo" id="mapLogo" aria-label="첫 화면으로"><img src="./assets/브랜드-워드마크.png" alt="LITTTL."></button>
+    <div id="mapCounts">
+      <button class="big" id="mapLogin" hidden>로그인</button>
+      <button id="mapHelp" aria-label="사용 방법" title="사용 방법">?</button>
+      <button id="mapMenu" aria-label="설정" title="설정" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></button>
+    </div>
+  </header>
+  <div id="mapMain">
+    <div id="mapTools">
+      <div><div id="mapFindRow"><div class="find" id="mapFind"></div><button class="big off" id="randomBtn">이웃 나무 구경하기</button></div><p class="note" id="mapNote"></p></div>
+    </div>
+    <div class="mapMembershipNote">
+      <p>벼락밭의 나무와 연결하려면? <button class="link" id="mapMembershipBtn" type="button">여기</button></p>
+      <p><button class="link" id="mapCodeBtn" type="button">나무 코드 입력</button></p>
+    </div>
+    <div id="mapBox"><span id="mapFarmLabel">벼락밭</span><div id="map" role="group" aria-label="리틀팜 귤나무 숲 지도"><button class="big off" id="overviewBtn">← 전체 지도</button></div></div>
+  </div>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="sheet"></dialog>
+
+<script src="./js/filter.js"></script>
+<script src="./js/backend.js"></script>
+<script src="./js/app.js"></script>
+
+<!-- 지도는 모든 숲·나무·장식·문구를 HTML/SVG 요소로 생성합니다. -->
+</body>
+</html>
