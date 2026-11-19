@@ -217,6 +217,12 @@ function LiveBackend(){
           return ensureUserDoc(cred.user).then(function(){
             return {uid:cred.user.uid,email:cred.user.email,displayName:cred.user.displayName||''};
           });
+        }).catch(function(err){
+          if(err && (err.code === 'auth/unauthorized-domain' || String(err.message||'').includes('unauthorized-domain'))) {
+            var currentHost = window.location.hostname;
+            throw new Error('현재 주소('+currentHost+')가 Firebase 콘솔의 [Authentication > 설정 > 승인된 도메인(Authorized domains)]에 등록되어 있지 않습니다. Firebase 콘솔에 이 도메인을 추가해 주세요.');
+          }
+          throw err;
         });
       },
       signOut:function(){ return authMod.signOut(auth); },

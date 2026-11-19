@@ -1,0 +1,7 @@
+{
+  "name": "LITTTL. FARM",
+  "description": "제주 서귀포 벼락밭 감귤나무 키우기 및 이웃 소통 웹 애플리케이션",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
