@@ -205,6 +205,17 @@ test('서버 보안 헤더, 정적 캐시 정책 및 /api/diary-reply 입력 검
     assert.equal(cfgRes.status, 200);
     assert.equal(cfgRes.headers.get('cache-control'), 'no-store');
 
+    for (const svgPath of [
+      '/assets/litttl-farm-map/02-roads.svg',
+      '/assets/litttl-farm-map/foreground.svg',
+      '/assets/litttl-farm-map/groves/grove-01.svg',
+      '/assets/litttl-farm-map/groves/grove-12.svg',
+    ]) {
+      const svgRes = await fetch(`${base}${svgPath}`);
+      assert.equal(svgRes.status, 200, svgPath);
+      assert.match(svgRes.headers.get('cache-control') || '', /max-age=604800/);
+    }
+
     const emptyReply = await fetch(`${base}/api/diary-reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

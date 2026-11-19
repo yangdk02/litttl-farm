@@ -322,7 +322,7 @@ app.get('/js/config.js', (_req, res) => {
 app.use(express.static(frontDir, {
   index: 'index.html',
   setHeaders(res, filePath) {
-    if (/\.(png|ico|woff2|ttf)$/i.test(filePath)) {
+    if (/\.(png|svg|ico|woff2|ttf)$/i.test(filePath)) {
       res.set('Cache-Control', 'public, max-age=604800, immutable');
     } else if (/\.html$/i.test(filePath)) {
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');

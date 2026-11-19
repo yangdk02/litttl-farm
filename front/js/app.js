@@ -34,9 +34,10 @@ function renderConsentBanner(){
 function openAnalyticsSettings(){
   var cur=getAnalyticsConsent();
   var stateText=cur==='granted'?'현재 상태: 동의함 (필수 이벤트 수집 허용)':(cur==='denied'?'현재 상태: 거부함 (분석 쿠키·이벤트 차단 중)':'현재 상태: 선택 전 (동의 전 기본 차단 중)');
-  openSheet('분석 쿠키 설정','동의 전에는 분석 쿠키와 이벤트 수집이 모두 차단되며, 언제든 설정을 바꿀 수 있어요.');
+  openSheet('분석 쿠키 설정','동의 전에는 분석 쿠키와 이벤트 수집이 모두 차단되며, 언제든 설정을 바꿀 수 있습니다.');
+  sheet.classList.add('legalSheet','analyticsSheet');
   var doc=el('div','legalDoc');
-  doc.innerHTML='<p><strong>'+stateText+'</strong></p><p>수집 항목: 가입, 로그인, 나무 연결, 일기 저장, 구름 띄우기, 하트 남기기 이벤트. 일기 본문이나 이메일 주소 등 개인 입력 내용은 수집하지 않습니다.</p>';
+  doc.innerHTML='<p><strong>'+stateText+'</strong></p><p>수집 항목: 가입, 로그인, 나무 연결, 일기 저장, 구름 띄우기, 하트 남기기 이벤트입니다. 일기 본문이나 이메일 주소 등 개인 입력 내용은 수집하지 않습니다.</p>';
   sheet.appendChild(doc);
   var a=actions();
   a.append(
@@ -1812,33 +1813,38 @@ function openWeather(){
 
 /* ---------- 지도 ---------- */
 var allTrees=[], mapForest=null;
-function forestArtifact(f,i){
-  var r=rng(701+i*97), dots='', count=Math.max(12,Math.round(f[5]/3)), accents=['#fff0bd','#1d7840','#f28a1b','#b9df73'], accent=accents[i%accents.length];
-  var shapes=[
-    'M12 59C18 27 48 13 88 17C119 3 164 9 179 25C216 24 235 43 226 69C235 91 199 105 164 98C132 111 91 102 73 96C39 102 7 88 12 59Z',
-    'M9 48C25 19 58 14 94 21C128 7 183 15 195 29C228 31 238 54 220 73C205 96 155 99 125 91C88 101 31 93 16 76C5 68 3 57 9 48Z',
-    'M24 23C53 7 91 15 111 22C144 5 186 14 205 34C228 53 216 83 190 94C156 105 128 94 106 98C72 107 33 94 20 72C7 52 8 35 24 23Z'
-  ], shape=shapes[i%shapes.length];
-  for(var k=0;k<count;k++){
-    var a=r()*Math.PI*2, d=Math.sqrt(r()), x=120+Math.cos(a)*96*d, y=57+Math.sin(a)*38*d, s=4+r()*2.5;
-    dots+='<g transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+Math.round((r()-.5)*16)+')"><path d="M0 4v8" stroke="#72523a" stroke-width="2" stroke-linecap="round"/><circle cy="-1" r="'+s.toFixed(1)+'" fill="'+(k%3===0?'#78aa4d':'#5f963f')+'"/><circle cx="'+(r()>.5?2:-2)+'" cy="-2" r="1.8" fill="'+accent+'"/></g>';
-  }
-  return '<svg class="forestImage" viewBox="0 0 240 112" aria-hidden="true"><path d="'+shape+'" fill="#dce9b8" opacity=".62"/>'+dots+'</svg>';
-}
+var MAP_GROVES=[
+  {num:'12',box:[58.633,82.413,30.387,15.746]},
+  {num:'09',box:[22.099,62.523,29.42,14.365]},
+  {num:'03',box:[69.268,2.855,26.865,18.14]},
+  {num:'07',box:[27.348,42.726,26.727,17.311]},
+  {num:'11',box:[19.337,82.689,31.492,16.022]},
+  {num:'10',box:[62.017,62.983,28.867,13.812]},
+  {num:'08',box:[62.362,42.265,27.21,17.403]},
+  {num:'06',box:[69.82,22.744,24.033,17.864]},
+  {num:'02',box:[43.854,3.959,20.994,17.495]},
+  {num:'01',box:[18.025,2.855,25.622,19.153]},
+  {num:'04',box:[16.506,24.033,25,17.311]},
+  {num:'05',box:[43.094,24.309,21.202,17.68]}
+];
 function setupMap(){
-  var map=$('map'), decor=el('div'); decor.id='mapDecorLayer';
-  decor.innerHTML='<div class="mapPaper" aria-hidden="true"></div>'
-   +'<svg class="mapPath" viewBox="0 0 1300 1188" preserveAspectRatio="none" aria-hidden="true"><path class="territory" d="M775 0C758 176 800 335 776 500C754 655 790 842 765 1005C756 1072 770 1138 798 1188H880C850 1118 844 1054 854 990C875 829 836 650 856 495C878 322 837 169 853 0Z"/><path class="territory" d="M814 625C966 604 1130 616 1300 646V707C1124 680 965 676 812 696Z"/><path class="territory" d="M818 844C971 822 1137 838 1300 870V926C1129 900 968 896 814 910Z"/><path class="territory" d="M0 773C238 750 518 764 808 801V862C514 828 246 821 0 842Z"/><path class="territoryInner" d="M806 0C790 176 829 333 807 501C786 658 821 839 797 1000C786 1075 801 1138 826 1188H851C829 1115 823 1053 833 986C852 826 818 653 837 495C858 323 821 169 834 0Z"/></svg>'
-   +'<div class="mapLandmarks" aria-hidden="true"><svg class="mapLandmark l1" viewBox="0 0 80 36"><path d="M4 29L10 8M24 31L28 6M45 30L48 9M67 31L72 7M7 16C25 13 49 17 70 14M6 24C28 21 49 26 69 22"/></svg><svg class="mapLandmark l2" viewBox="0 0 80 36"><path d="M4 29L10 8M24 31L28 6M45 30L48 9M67 31L72 7M7 16C25 13 49 17 70 14M6 24C28 21 49 26 69 22"/></svg><svg class="mapLandmark l3" viewBox="0 0 80 36"><path d="M4 29L10 8M24 31L28 6M45 30L48 9M67 31L72 7M7 16C25 13 49 17 70 14M6 24C28 21 49 26 69 22"/></svg></div>';
+  var map=$('map'), decor=el('div'); decor.id='mapDecorLayer'; decor.setAttribute('aria-hidden','true');
+  decor.innerHTML='<img class="mapLayerImg" src="./assets/litttl-farm-map/02-roads.svg" alt="">';
   var forests=el('div'); forests.id='forestLayer';
+  var fg=el('div'); fg.id='mapForegroundLayer'; fg.setAttribute('aria-hidden','true');
+  fg.innerHTML='<img class="mapLayerImg" src="./assets/litttl-farm-map/foreground.svg" alt="">';
   var trees=el('div'); trees.id='treeLayer';
-  var rotations={'열흘숲':-2,'아흐레숲':1,'사흘숲':-1,'열하루숲':1,'열이틀숲':-1,'여드레숲':1,'나흘숲':-1,'리틀숲':1,'이레숲':-1,'엿새숲':1,'닷새숲':-1,'하루숲':1};
   F.forEach(function(f,i){
-    var label=el('button','forestCard');
-    label.id='h'+i; label.style.cssText='left:'+f[1]+'%;top:'+f[2]+'%;width:'+f[3]+'%;--r:'+(rotations[f[0]]||0)+'deg'; label.setAttribute('aria-label',f[0]+' · '+f[5]+'그루');
-    label.innerHTML=forestArtifact(f,i); label.appendChild(txt('span','forestName',f[0])); label.onclick=function(){ location.hash='map-'+i; }; forests.appendChild(label);
+    var g=MAP_GROVES[i], label=el('button','forestCard');
+    label.id='h'+i;
+    label.style.cssText='left:'+g.box[0]+'%;top:'+g.box[1]+'%;width:'+g.box[2]+'%;height:'+g.box[3]+'%';
+    label.setAttribute('aria-label',f[0]+' · '+f[5]+'그루');
+    var img=document.createElement('img'); img.className='forestImage'; img.src='./assets/litttl-farm-map/groves/grove-'+g.num+'.svg'; img.alt=''; img.setAttribute('aria-hidden','true');
+    label.append(img,txt('span','forestName',f[0]));
+    label.onclick=function(){ location.hash='map-'+i; };
+    forests.appendChild(label);
   });
-  map.append(decor,forests,trees);
+  map.append(decor,forests,fg,trees);
   findForm($('mapFind'),$('mapNote'));
 }
 function renderForestTrees(i){
