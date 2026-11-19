@@ -1,8 +1,4 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
-
-# LITTTL. FARM (리틀팜 귤나무 키우기)
+# LITTTL. FARM. (리틀팜 귤나무 키우기)
 
 제주 서귀포 벼락밭 감귤나무 키우기 및 가족 공유 서비스입니다.
 
