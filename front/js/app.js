@@ -854,7 +854,7 @@ function openAuth(tab,lead){
     gBtn.disabled=true; note.textContent='';
     B.signInWithGoogle().then(function(){ if(sheet.open) sheet.close(); }).catch(function(x){
       gBtn.disabled=false;
-      note.textContent=AUTH_ERR[x&&x.code]||'Google 로그인을 완료하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+      note.textContent = (x && x.message && x.message.includes('도메인')) ? x.message : (AUTH_ERR[x&&x.code] || (x && x.message) || 'Google 로그인을 완료하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
     });
   };
   socials.appendChild(gBtn);
@@ -995,7 +995,21 @@ function openDiaryEntry(key,editing,selectedUid){
     sheet.appendChild(txt('label','','오늘의 그림'));
     var drawing=el('div','diaryIcons'); drawing.appendChild(el('span','diaryIcon',diaryIconSvg(entry.icon))); sheet.appendChild(drawing);
     sheet.appendChild(txt('p','diaryRead',entry.text||'아직 적힌 이야기가 없어요.'));
-    var replyInfo=treeReplyInfo(key,entry); if(replyInfo.text){ var reply=el('section','treeReply'); reply.append(txt('h3','','나무가'),txt('p','',replyInfo.text)); sheet.appendChild(reply); }
+    var replyInfo=treeReplyInfo(key,entry);
+    if(replyInfo.text){
+      var reply=el('section','treeReply');
+      var h3Wrap=el('div','treeReplyHead');
+      var h3=txt('h3','','나무가');
+      var tipBtn=el('button','treeTipBtn','?');
+      tipBtn.setAttribute('type','button');
+      tipBtn.setAttribute('aria-label','AI 답장 안내');
+      var tip=txt('span','treeTipMsg','이 답장은 AI(인공지능)가 작성하며, 입력하신 내용은 AI 학습에 사용되지 않습니다.');
+      tip.setAttribute('role','tooltip');
+      tipBtn.appendChild(tip);
+      h3Wrap.append(h3,tipBtn);
+      reply.append(h3Wrap,txt('p','',replyInfo.text));
+      sheet.appendChild(reply);
+    }
     var readActions=actions(); readActions.classList.add('diaryActions'); readActions.appendChild(ghostBtn('달력으로',function(){ openDiary(diaryMonth,true); })); if(selectedUid===me.uid) readActions.appendChild(bigBtn('수정하기',function(){ openDiaryEntry(key,true,me.uid); }));
     return;
   }

@@ -167,7 +167,7 @@ app.post('/api/diary-reply', async (req, res) => {
       },
     });
     const response = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
+      model: 'gemini-3.1-flash-lite',
       contents,
       config: {
         systemInstruction,
