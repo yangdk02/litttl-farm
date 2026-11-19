@@ -1,0 +1,14 @@
+{
+  "source": "C:\\Users\\gkejr\\Desktop\\업프로젝트2리틀주식회사농업법인\\output\\imagegen\\uncle-litttl-light-earth-road.png",
+  "canvas": [
+    1448,
+    1086
+  ],
+  "format": "editable vector paths; no embedded PNG",
+  "transparent": "all SVGs except background and combined map",
+  "limitations": [
+    "Raster tracing approximates hand-drawn edges and color texture.",
+    "Hidden road section beneath cart is reconstructed.",
+    "Grove files contain visible tree shapes; hidden portions of overlapping trees are not reconstructed."
+  ]
+}

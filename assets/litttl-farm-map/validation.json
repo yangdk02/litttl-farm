@@ -1,0 +1,164 @@
+[
+  {
+    "file": "00-map-layered.svg",
+    "paths": 1098,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "01-background.svg",
+    "paths": 0,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "02-roads.svg",
+    "paths": 443,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "03-trees.svg",
+    "paths": 369,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "04-character-bowl.svg",
+    "paths": 29,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "05-character-resting.svg",
+    "paths": 19,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "06-cart.svg",
+    "paths": 26,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "07-fences.svg",
+    "paths": 36,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "08-rocks.svg",
+    "paths": 37,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "09-flowers.svg",
+    "paths": 58,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "10-saplings.svg",
+    "paths": 21,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "11-grass.svg",
+    "paths": 52,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "12-footprints.svg",
+    "paths": 8,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "13-tree-fruit-only.svg",
+    "paths": 76,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "14-trees-without-fruit.svg",
+    "paths": 293,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-01.svg",
+    "paths": 31,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-02.svg",
+    "paths": 31,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-03.svg",
+    "paths": 31,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-04.svg",
+    "paths": 34,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-05.svg",
+    "paths": 25,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-06.svg",
+    "paths": 33,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-07.svg",
+    "paths": 20,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-08.svg",
+    "paths": 30,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-09.svg",
+    "paths": 26,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-10.svg",
+    "paths": 29,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-11.svg",
+    "paths": 40,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  },
+  {
+    "file": "groves\\grove-12.svg",
+    "paths": 39,
+    "embedded_images": 0,
+    "viewBox": "0 0 1448 1086"
+  }
+]
