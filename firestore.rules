@@ -51,7 +51,10 @@ service cloud.firestore {
       allow update: if (signedIn() && isValidId(id) && uid() == id
         && isValidUser(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nick','treeId','invites','lastCloudAt','lastDiaryReplyDate','tutorialSeen']))
-        || (admin() && isValidId(id) && id.matches('^seed-.*'));
+        || (admin() && isValidId(id) && id.matches('^seed-.*'))
+        || (admin() && isValidId(id)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['treeId'])
+          && (request.resource.data.treeId == null || isValidId(request.resource.data.treeId)));
       allow delete: if (request.auth != null && isValidId(id) && uid() == id)
         || (admin() && isValidId(id) && id != uid());
     }
@@ -79,6 +82,7 @@ service cloud.firestore {
               || get(/databases/$(database)/documents/users/$(uid())).data.treeId == id)
             && get(/databases/$(database)/documents/invites/$(request.resource.data.joinCode)).data.treeId == id)
         || (admin() && id.matches('^virtual-seed-.*'))
+        || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'chars', 'ownerUid', 'lastAct']))
       );
 
       match /hearts/{key} {
@@ -101,6 +105,7 @@ service cloud.firestore {
         allow delete: if signedIn() && isValidId(messageId) && (
           resource.data.uid == uid()
           || get(/databases/$(database)/documents/trees/$(id)).data.ownerUid == uid()
+          || member(id)
           || admin()
         );
       }

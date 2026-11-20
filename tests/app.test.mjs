@@ -272,3 +272,197 @@ test('분석 동의 관리: 동의 전 이벤트 수집 차단, 동의 후 6종 
   assert.equal(backend.trackEvent('heart_send', { tree_id: '0-2' }), false);
   assert.equal(backend.getAnalyticsEvents().length, 6);
 });
+
+test('트러블 슈팅 및 D2Coding 폰트 정적 서빙/스타일 확인', async () => {
+  const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
+  assert.match(css, /font-family:'D2Coding'/);
+  assert.match(css, /--mono:'D2Coding'/);
+  assert.match(css, /\.troubleshootCode\{[^}]*font-family:var\(--mono\)/);
+  assert.match(css, /\.invite-code code\{[^}]*var\(--mono\)/);
+  assert.match(css, /\.treeCodeRow input[^}]*font-family:var\(--mono\)/);
+
+  const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
+  assert.match(appJs, /yangdk02@gmail\.com/);
+  assert.doesNotMatch(appJs, /오류 화면 예시 보기/);
+  assert.doesNotMatch(appJs, /openSampleTroubleshoot/);
+  assert.match(appJs, /openTroubleshoot/);
+  assert.doesNotMatch(appJs, /crayonDiaryIcon/);
+  assert.match(appJs, /class="diaryIconArt"[^>]*viewBox="0 0 40 40"/);
+  assert.match(appJs, /trees\/tree-0/);
+  assert.doesNotMatch(css, /diary-crayon-icons\.png/);
+
+  const app = createApp();
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  try {
+    const port = server.address().port;
+    const base = `http://127.0.0.1:${port}`;
+    for (const fontPath of [
+      '/fonts/D2Coding-Ver1.4.0-20261003.ttf',
+      '/fonts/D2CodingBold-Ver1.4.0-20261003.ttf',
+    ]) {
+      const res = await fetch(`${base}${fontPath}`);
+      assert.equal(res.status, 200, fontPath);
+      assert.match(res.headers.get('cache-control') || '', /max-age=604800/);
+    }
+    for (let v = 1; v <= 5; v += 1) {
+      const treePath = `/assets/litttl-farm-map/trees/tree-0${v}.svg`;
+      const res = await fetch(`${base}${treePath}`);
+      assert.equal(res.status, 200, treePath);
+      assert.match(res.headers.get('cache-control') || '', /max-age=604800/);
+      const svgText = await res.text();
+      assert.match(svgText, /<svg[^>]*viewBox="0 0 100 116"/);
+      assert.match(svgText, /#23231D/);
+      assert.match(svgText, /#528E29|#538D29/);
+    }
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('관리자 데이터 정리: 회원 정리(단독/공유/고아/본인방어), 나무 삭제, 시드 정리 및 규칙 동기화', async () => {
+  const { context } = createFrontendSandbox();
+  const backend = context.DemoBackend();
+  const admin = await backend.signInWithGoogle();
+
+  await assert.rejects(
+    () => backend.adminCleanupUser(admin.uid),
+    (err) => err.code === 'admin/self-delete'
+  );
+
+  // 1) 단독 나무 회원 정리
+  await backend.setUser('test_solo', { nick: '단독회원', email: 'solo@test.com', treeId: '1-1', invites: {} });
+  await backend.createTree('1-1', {
+    id: '1-1', f: 1, n: 1, ownerUid: 'test_solo', members: ['test_solo'],
+    chars: [{ id: 'c1', uid: 'test_solo', name: '단독' }], hearts: 0,
+  });
+  await backend.saveDiary('1-1', '2026-11-18__test_solo', { date: '2026-11-18', icon: 'sun', text: '단독 일기', uid: 'test_solo' });
+  await backend.addMessage('1-1', { text: '단독 응원', uid: 'test_solo', ts: Date.now() });
+  await backend.addCloud({ text: '단독 구름', uid: 'test_solo', ts: Date.now(), treeId: '1-1' });
+  await backend.createInvite('SOLO01', { treeId: '1-1', ownerUid: 'test_solo' });
+
+  const soloRes = await backend.adminCleanupUser('test_solo');
+  assert.equal(soloRes.ok, true);
+  assert.equal(soloRes.deletedTrees, 1);
+  assert.equal(await backend.getUser('test_solo'), null);
+  assert.equal(await backend.getTree('1-1'), null);
+  assert.deepEqual(await backend.listDiary('1-1'), []);
+  assert.deepEqual(await backend.listMessages('1-1'), []);
+  assert.equal(await backend.getInvite('SOLO01'), null);
+
+  // 2) 가족 공유 나무 회원 정리 (방장 승계 및 남은 가족 일기 보존)
+  await backend.setUser('test_drop', { nick: '나갈가족', email: 'drop@test.com', treeId: '1-2', invites: {} });
+  await backend.setUser('keep_user', { nick: '남을가족', email: 'keep@test.com', treeId: '1-2', invites: {} });
+  await backend.createTree('1-2', {
+    id: '1-2', f: 1, n: 2, ownerUid: 'test_drop', members: ['test_drop', 'keep_user'],
+    chars: [{ id: 'c1', uid: 'test_drop', name: '나감' }, { id: 'c2', uid: 'keep_user', name: '남음' }], hearts: 2,
+  });
+  await backend.saveDiary('1-2', '2026-11-18__test_drop', { date: '2026-11-18', icon: 'sun', text: '나갈 사람 일기', uid: 'test_drop' });
+  await backend.saveDiary('1-2', '2026-11-18__keep_user', { date: '2026-11-18', icon: 'tangerine', text: '남을 가족 일기', uid: 'keep_user' });
+
+  const sharedRes = await backend.adminCleanupUser('test_drop');
+  assert.equal(sharedRes.deletedTrees, 0);
+  assert.equal(await backend.getUser('test_drop'), null);
+  const sharedTreeAfter = await backend.getTree('1-2');
+  assert.equal(sharedTreeAfter.ownerUid, 'keep_user');
+  assert.deepEqual(sharedTreeAfter.members, ['keep_user']);
+  const keptDiaries = await backend.listDiary('1-2');
+  assert.equal(keptDiaries.length, 1);
+  assert.equal(keptDiaries[0].uid, 'keep_user');
+
+  // 3) 고아 UID 정리 (users 문서 없이 나무/구름에만 남은 데이터)
+  await backend.createTree('virtual-orphan', {
+    id: 'virtual-orphan', f: 0, n: 999, virtual: true, ownerUid: 'ghost_uid', members: ['ghost_uid'], chars: [], hearts: 0,
+  });
+  await backend.addCloud({ text: '고아 구름', uid: 'ghost_uid', ts: Date.now(), treeId: 'virtual-orphan' });
+  const ghostRes = await backend.adminCleanupUser('ghost_uid');
+  assert.equal(ghostRes.deletedTrees, 1);
+  assert.equal(await backend.getTree('virtual-orphan'), null);
+
+  // 4) 특정 나무 삭제 + 연결 회원 treeId 해제
+  const treeDelRes = await backend.adminDeleteTree('1-2');
+  assert.equal(treeDelRes.ok, true);
+  assert.equal(treeDelRes.clearedUsers, 1);
+  assert.equal(await backend.getTree('1-2'), null);
+  assert.equal((await backend.getUser('keep_user')).treeId, null);
+
+  // 5) 시드 데이터 일괄 정리 (일반 회원은 보존)
+  await backend.setUser('seed-u1', { nick: '시드1', email: 'seed1@example.com', treeId: 'virtual-seed-t1', seed: true });
+  await backend.createTree('virtual-seed-t1', { id: 'virtual-seed-t1', f: 0, n: 999, ownerUid: 'seed-u1', members: ['seed-u1'], chars: [], seed: true });
+  const seedRes = await backend.adminCleanupSeed();
+  assert.equal(seedRes.users, 1);
+  assert.equal(seedRes.trees, 1);
+  assert.equal(await backend.getUser('seed-u1'), null);
+  assert.equal(await backend.getTree('virtual-seed-t1'), null);
+  const remainingUsers = await backend.adminListUsers();
+  assert.ok(remainingUsers.some((u) => u.uid === admin.uid));
+  assert.ok(remainingUsers.some((u) => u.uid === 'keep_user'));
+
+  // 6) UI, CSS 및 Firestore 규칙 동기화 확인
+  const indexHtml = fs.readFileSync(path.join(rootDir, 'front', 'index.html'), 'utf8');
+  const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
+  const rootRules = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8');
+  const backRules = fs.readFileSync(path.join(rootDir, 'back', 'firestore.rules'), 'utf8');
+  assert.match(indexHtml, /id="adminBtn"[^>]*hidden[\s\S]*id="help"/);
+  assert.match(indexHtml, /id="mapAdminBtn"[^>]*hidden[\s\S]*id="mapHelp"/);
+  assert.match(appJs, /openAdminMenu/);
+  assert.match(appJs, /openAdminCleanup/);
+  assert.match(appJs, /계정·나무 정리/);
+  assert.doesNotMatch(appJs, /테스트 계정·나무 정리/);
+  assert.match(css, /#help,#mapHelp,#adminBtn,#mapAdminBtn/);
+  assert.match(css, /\.adminCleanupSheet/);
+  assert.equal(rootRules, backRules);
+  assert.match(rootRules, /affectedKeys\(\)\.hasOnly\(\['treeId'\]\)/);
+  assert.match(rootRules, /affectedKeys\(\)\.hasOnly\(\['members', 'chars', 'ownerUid', 'lastAct'\]\)/);
+});
+
+test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 제거, 안내 문구 및 규칙 확인', async () => {
+  const { context } = createFrontendSandbox();
+  const backend = context.DemoBackend();
+  await backend.createTree('2-1', { id: '2-1', f: 2, n: 1, ownerUid: 'owner_1', members: ['owner_1', 'fam_2'], chars: [], hearts: 0 });
+  await backend.addMessage('2-1', { text: '반가워요 이웃님', fromName: '이웃', uid: 'visitor_1', ts: Date.now() });
+
+  let list = await backend.listMessages('2-1');
+  assert.equal(list.length, 1);
+  assert.equal(list[0].text, '반가워요 이웃님');
+
+  await backend.deleteMessage('2-1', list[0].id);
+  list = await backend.listMessages('2-1');
+  assert.equal(list.length, 0);
+
+  const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
+  const rules = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8');
+  assert.doesNotMatch(appJs, /guestbookAct/);
+  assert.match(appJs, /renderCheerList\(openEdit\)/);
+  assert.match(appJs, /이웃이 남긴 방명록/);
+  assert.match(appJs, /openCheerDeleteConfirm/);
+  assert.doesNotMatch(appJs, /<h3>방명록<\/h3>/);
+  assert.match(appJs, /이웃 나무·내 나무 방명록 지우기/);
+  assert.match(css, /\.guestbookSection/);
+  assert.match(rules, /match \/messages\/\{messageId\}[\s\S]*allow delete:[\s\S]*member\(id\)/);
+
+  // 사용 방법 버튼 그림 삽입 및 최신 문구, 매뉴얼 동기화 확인
+  assert.match(appJs, /tutorialBtnGrid/);
+  assert.match(appJs, /tutorialBtnIcon/);
+  ['ICON.pick', 'ICON.bug', 'ICON.hug', 'ICON.water', 'ICON.cloud', 'ICON.book', 'ICON.note', 'ICON.family', 'ICON.map'].forEach((tok) => {
+    assert.ok(appJs.includes(`{icon:${tok}`), `사용 방법에 ${tok} 버튼 그림이 포함되어야 합니다.`);
+  });
+  assert.match(appJs, /날짜를 눌러 글을 남겨요\./);
+  assert.doesNotMatch(appJs, /날짜를 눌러 그림과 글을 남겨요\./);
+  assert.match(css, /\.tutorialBtnGrid/);
+  assert.match(css, /\.tutorialBtnIcon/);
+
+  const userGuide = fs.readFileSync(path.join(rootDir, 'USER_GUIDE.md'), 'utf8');
+  const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
+  assert.match(userGuide, /실제 버튼 그림과 함께 간단한 사용 방법/);
+  assert.match(userGuide, /방명록\(댓글\)/);
+  assert.match(adminGuide, /왕관 모양\(`관리자`\) 버튼/);
+  assert.match(adminGuide, /계정과 나무 기록 정리하기 \(`계정·나무 정리`\)/);
+  assert.match(adminGuide, /방명록\(댓글\) 지우기/);
+  assert.match(adminGuide, /yangdk02@gmail\.com/);
+});
+
