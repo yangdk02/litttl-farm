@@ -22,7 +22,7 @@ html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-fam
 body[data-page=scene]{overflow:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 input,select,textarea{font-family:var(--hand);font-size:20px}
-button{cursor:pointer;background:none;border:0;padding:0;word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
+button{cursor:pointer;background:none;border:0;padding:0;word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty;font-family:var(--hand)}
 h1,h2,h3,h4,dialog h2,.legalDoc h3,.footerGrid h3,.treeChoiceBlock h3,.treeReply h3,#emptyBar p{word-break:keep-all;overflow-wrap:break-word;text-wrap:balance}
 p,li,small,label,summary,a,span,.sub,.note,.story,.diaryRead,.treeReply p,.cheer span,.cloudTreeDescription,.treeChoiceHelp,.mapMembershipNote,.legalDoc p,.legalDoc li,.consents p,.lead,.big-lead,.authLegalNote,.actTip,.treeTip,#toast,.cloud span,.linkCloud a,.linkCloudTitle,.forestName,.name-result{word-break:keep-all;overflow-wrap:break-word}
 p,li,small,label,summary,span,.sub,.note,.story,.diaryRead,.treeReply p,.cheer span,.cloudTreeDescription,.treeChoiceHelp,.mapMembershipNote,.legalDoc p,.legalDoc li,.consents p,.lead,.big-lead,.authLegalNote,.actTip,.treeTip,#toast{text-wrap:pretty}
@@ -522,29 +522,34 @@ body[data-mode=links] #mound,body[data-mode=out] #mound,body[data-mode=empty] #m
 }
 
 .guestbookSection{margin-top:24px;padding-top:18px;border-top:2px dashed var(--mid)}
-.guestbookSection,.guestbookSection *,.guestbookSheet .sub,.guestbookSheet .note,.guestbookSheet .acts .big,.guestbookSheet .cheer,.guestbookSheet .cheer span,.guestbookSheet .cheer .del,.guestbookSheet .cheerTime,.guestbookPreview,.guestbookHeading,.guestbookSub{font-family:var(--read);letter-spacing:0}
+.guestbookSection,.guestbookSection *,.guestbookSheet label,.guestbookSheet input,.guestbookSheet textarea,.guestbookSheet .acts .big,.guestbookSheet .cheer,.guestbookSheet .cheer span,.guestbookSheet .cheer .del,.guestbookPreview,.guestbookHeading,.guestbookEmpty{font-family:var(--hand);letter-spacing:-.03em}
+.guestbookSheet .sub,.guestbookSheet .note,.guestbookSub{font-family:var(--read);letter-spacing:0}
 .guestbookSheet .sub,.guestbookSub{margin:6px 0 0;font-size:14.5px;line-height:1.55;color:#444}
-.guestbookHeading{margin:18px 0 0;font-size:16.5px;font-weight:700;color:var(--ink)}
+.guestbookHeading{margin:18px 0 0;font-size:21px;font-weight:700;color:var(--ink)}
 .guestbookSection .guestbookHeading{margin-top:0}
 .guestbookSheet .cheers,.guestbookSection .cheers{margin-top:12px;gap:12px;max-height:40vh}
 .guestbookSheet .cheer,.guestbookSection .cheer{padding:12px 62px 10px 0}
-.guestbookSheet .cheer b,.guestbookSection .cheer b{font-family:var(--read);font-size:15.5px;font-weight:700;line-height:1.35;color:var(--ink)}
-.cheerTime{margin:2px 0 5px;font-size:12.5px!important;line-height:1.3;color:#666!important}
-.guestbookSheet .cheer span,.guestbookSection .cheer span{display:block;font-size:15px;line-height:1.55;color:#222}
-.guestbookSheet .cheer .del,.guestbookSection .cheer .del{top:10px;padding:4px 8px;border:1.5px solid var(--ink);border-radius:8px;background:#fff;font-size:13.5px;font-weight:600;color:var(--ink);text-decoration:none}
+.guestbookSheet .cheer b,.guestbookSection .cheer b{font-family:var(--hand);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink)}
+.cheerTime{margin:2px 0 5px;font-family:var(--read)!important;font-size:12.5px!important;line-height:1.3;letter-spacing:0;color:#666!important}
+.guestbookSheet .cheer span,.guestbookSection .cheer span{display:block;font-size:20px;line-height:1.55;color:#222}
+.guestbookSheet .cheer .del,.guestbookSection .cheer .del{top:10px;padding:4px 8px;border:1.5px solid var(--ink);border-radius:8px;background:#fff;font-size:17px;font-weight:600;color:var(--ink);text-decoration:none}
 .guestbookSheet .cheer .del:hover,.guestbookSheet .cheer .del:focus-visible,.guestbookSection .cheer .del:hover,.guestbookSection .cheer .del:focus-visible{border-color:var(--tangerine);color:var(--tangerine-ink);background:#fff8ee}
+.guestbookEmpty{margin:10px 0 0;font-size:20px;line-height:1.55;color:var(--deep)}
+.treeStorySheet .lead,.treeStorySheet .story,.treeStoryIntro{font-family:var(--hand);letter-spacing:-.03em}
+.treeStoryIntro{margin:5px 0 0;font-size:20px;line-height:1.55;color:var(--deep)}
+.treeStoryEditSheet>label{font-family:var(--hand);font-size:20px}
 .guestbookPreview{margin-top:6px;padding:13px 15px;border:2px solid var(--ink);border-radius:14px;background:#fffdf9}
 .guestbookPreview b{display:block;font-size:15.5px;font-weight:700;color:var(--ink)}
 .guestbookPreview p{margin:6px 0 0;font-size:15px;line-height:1.55;color:#222;white-space:pre-wrap;word-break:keep-all;overflow-wrap:break-word}
 
 .tutorialSheet{width:min(660px,calc(100vw - 32px))}
 .tutorialDoc{display:grid;gap:16px}
-.tutorialSection{padding:14px 16px;border:2px solid var(--ink);border-radius:16px;background:#fffdf9}
+.tutorialSection{padding:14px 0;border:0;border-radius:0;background:transparent}
 .tutorialSection h3{margin:0 0 10px;font-size:17px;font-weight:700;line-height:1.4;color:var(--ink)}
 .tutorialSection>p{margin:0;font-size:15.5px;line-height:1.55;color:#333}
 .tutorialBtnGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.tutorialBtnItem{display:flex;align-items:flex-start;gap:11px;padding:10px 11px;border:1.5px solid #d9d2c9;border-radius:13px;background:#fff}
-.tutorialBtnIcon{flex:none;display:grid;place-items:center;width:46px;height:46px;background:var(--paper);border:2.4px solid var(--ink);border-radius:var(--round);color:var(--ink)}
+.tutorialBtnItem{display:flex;align-items:flex-start;gap:11px;padding:10px 0;border:0;border-radius:0;background:transparent}
+.tutorialBtnIcon{flex:none;display:grid;place-items:center;width:46px;height:46px;background:transparent;border:0;border-radius:0;color:var(--ink)}
 .tutorialBtnIcon svg{width:25px;height:25px;overflow:visible}
 .tutorialBtnText{min-width:0;flex:1}
 .tutorialBtnText strong{display:block;font-size:15.5px;font-weight:700;line-height:1.35;color:var(--ink)}
@@ -553,4 +558,9 @@ body[data-mode=links] #mound,body[data-mode=out] #mound,body[data-mode=empty] #m
   .tutorialBtnGrid{grid-template-columns:1fr}
   .tutorialSection{padding:12px 13px}
 }
+
+/* 버튼은 손글씨, 설명과 보조 문장은 Pretendard로 통일 */
+button,.big,.mini,.link,.socialStart,.membershipKakaoLink,.footerLinkBtn{font-family:var(--hand)!important}
+.sub,.note,.actTip,.treeTip,.treeTipMsg,.guestbookSub,.tutorialBtnText p,.tutorialSection>p{font-family:var(--read);letter-spacing:0}
+#siteFooter .footerLinkBtn{font-family:var(--read)!important}
 

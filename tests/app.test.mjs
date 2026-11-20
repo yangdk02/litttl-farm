@@ -437,7 +437,9 @@ test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼
   const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
   const rules = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8');
   assert.doesNotMatch(appJs, /guestbookAct/);
-  assert.match(appJs, /renderCheerList\(openEdit\)/);
+  assert.match(appJs, /appendOwnGuestbook\(openEdit\)/);
+  assert.match(appJs, /bigBtn\('수정하기',openEditForm\)/);
+  assert.match(appJs, /field\('응원 남기기'/);
   assert.match(appJs, /이웃이 남긴 방명록/);
   assert.match(appJs, /openCheerDeleteConfirm/);
   assert.doesNotMatch(appJs, /<h3>방명록<\/h3>/);
@@ -458,7 +460,7 @@ test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼
 
   const userGuide = fs.readFileSync(path.join(rootDir, 'USER_GUIDE.md'), 'utf8');
   const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
-  assert.match(userGuide, /실제 버튼 그림과 함께 간단한 사용 방법/);
+  assert.match(userGuide, /간단한 사용 방법/);
   assert.match(userGuide, /방명록\(댓글\)/);
   assert.match(adminGuide, /왕관 모양\(`관리자`\) 버튼/);
   assert.match(adminGuide, /계정과 나무 기록 정리하기 \(`계정·나무 정리`\)/);
