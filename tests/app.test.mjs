@@ -419,7 +419,7 @@ test('관리자 데이터 정리: 회원 정리(단독/공유/고아/본인방�
   assert.match(rootRules, /affectedKeys\(\)\.hasOnly\(\['members', 'chars', 'ownerUid', 'lastAct'\]\)/);
 });
 
-test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 제거, 안내 문구 및 규칙 확인', async () => {
+test('응원 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 제거, 안내 문구 및 규칙 확인', async () => {
   const { context } = createFrontendSandbox();
   const backend = context.DemoBackend();
   await backend.createTree('2-1', { id: '2-1', f: 2, n: 1, ownerUid: 'owner_1', members: ['owner_1', 'fam_2'], chars: [], hearts: 0 });
@@ -440,10 +440,12 @@ test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼
   assert.match(appJs, /appendOwnGuestbook\(openEdit\)/);
   assert.match(appJs, /bigBtn\('수정하기',openEditForm\)/);
   assert.match(appJs, /field\('응원 남기기'/);
-  assert.match(appJs, /이웃이 남긴 방명록/);
+  assert.match(appJs, /이웃이 남긴 응원/);
   assert.match(appJs, /openCheerDeleteConfirm/);
-  assert.doesNotMatch(appJs, /<h3>방명록<\/h3>/);
-  assert.match(appJs, /이웃 나무·내 나무 방명록 지우기/);
+  assert.doesNotMatch(appJs, /방명록/);
+  assert.match(appJs, /이웃 나무·내 나무 응원 지우기/);
+  assert.match(appJs, /var spot=F\[\+d\.dataset\.f\]\[0\]\+' '\+d\.dataset\.n\+'번'/);
+  assert.match(appJs, /addSheetTitleTip\('다른 사람들에게 보여요\.'\)/);
   assert.match(css, /\.guestbookSection/);
   assert.match(rules, /match \/messages\/\{messageId\}[\s\S]*allow delete:[\s\S]*member\(id\)/);
 
@@ -461,10 +463,10 @@ test('방명록 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼
   const userGuide = fs.readFileSync(path.join(rootDir, 'USER_GUIDE.md'), 'utf8');
   const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
   assert.match(userGuide, /간단한 사용 방법/);
-  assert.match(userGuide, /방명록\(댓글\)/);
+  assert.match(userGuide, /응원/);
   assert.match(adminGuide, /왕관 모양\(`관리자`\) 버튼/);
   assert.match(adminGuide, /계정과 나무 기록 정리하기 \(`계정·나무 정리`\)/);
-  assert.match(adminGuide, /방명록\(댓글\) 지우기/);
+  assert.match(adminGuide, /응원 지우기/);
   assert.match(adminGuide, /yangdk02@gmail\.com/);
 });
 

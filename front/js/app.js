@@ -560,7 +560,7 @@ function hud(){
     h.innerHTML=HEART+'<span>+</span>'; h.setAttribute('aria-label','하트 남기기'); h.title='하트 남기기'; h.onclick=leaveHeart;
     if(me){ var visitId=view.id; B.hearted(visitId,me.uid,today()).then(function(y){ if(y&&view&&view.id===visitId&&mode()==='visit'){ h.innerHTML=HEART+'<span>✓</span>'; h.setAttribute('aria-label','오늘 응원했어요'); h.title='오늘 응원했어요'; h.onclick=function(){ toast('하트는 나무마다 하루에 한 번 남길 수 있어요.'); }; } }).catch(function(){}); }
   } else {
-    h.innerHTML=HEART+'<span>'+(T?T.hearts||0:0)+'</span>'; h.setAttribute('aria-label','방명록과 하트 보기'); h.title='방명록 보기'; h.onclick=openCheer;
+    h.innerHTML=HEART+'<span>'+(T?T.hearts||0:0)+'</span>'; h.setAttribute('aria-label','응원과 하트 보기'); h.title='응원 보기'; h.onclick=openCheer;
   }
   var seen=0; try{ seen=+localStorage.getItem('littlSeen')||0; }catch(e){}
   if(m==='mine'&&msgs.some(function(x){ return x.ts>seen&&(!me||x.uid!==me.uid); })) h.appendChild(el('u'));
@@ -623,7 +623,7 @@ function buildButtons(){
   if(m==='mine'){
     L.append(
       act('','cloud','구름 띄우기',openCompose,'24시간 동안 하늘을 지나가는 한마디를 띄워요'),
-      act('','book','나무 이야기',openEdit,'나무 이름과 이야기를 적고 방명록을 관리해요'),
+      act('','book','나무 이야기',openEdit,'나무 이름과 이야기를 적고 응원을 관리해요'),
       act('','note','우리 이야기',function(){ openDiary(); },'마음을 남기는 일기예요'),
       act('','family','우리 가족',openFamily,'함께 나무를 돌보는 가족을 보고 초대해요')
     );
@@ -973,7 +973,7 @@ function openSheet(title,sub){
   }
   cheerBox=null; document.body.classList.remove('authOpen'); sheet.className=''; sheet.innerHTML='';
   var x=el('button','x','×'); x.type='button'; x.setAttribute('aria-label','닫기'); x.onclick=function(){ sheet.close(); }; sheet.appendChild(x);
-  var heading=txt('h2','',title); heading.id='sheetTitle'; sheet.appendChild(heading);
+  var titleRow=el('div','sheetTitleRow'), heading=txt('h2','',title); heading.id='sheetTitle'; titleRow.appendChild(heading); sheet.appendChild(titleRow);
   sheet.setAttribute('aria-labelledby','sheetTitle');
   if(sub) sheet.appendChild(txt('p','sub',sub));
   if(!sheet.open) sheet.showModal(); return sheet;
@@ -1026,6 +1026,11 @@ function actions(){ var a=el('div','acts'); sheet.appendChild(a); return a; }
 function bigBtn(t,fn){ var b=el('button','big'); b.type='button'; b.textContent=t; b.onclick=fn; return b; }
 function ghostBtn(t,fn){ var b=bigBtn(t,fn); b.classList.add('off'); return b; }
 function formNote(){ var p=el('p','note'); p.setAttribute('role','status'); p.setAttribute('aria-live','polite'); sheet.appendChild(p); return p; }
+function addSheetTitleTip(message){
+  var row=sheet.querySelector('.sheetTitleRow'); if(!row) return;
+  var help=el('button','sheetTitleHelp','?'); help.type='button'; help.setAttribute('aria-label','안내');
+  var tip=txt('span','actTip',wrapTip(message,15)); tip.setAttribute('role','tooltip'); help.appendChild(tip); row.appendChild(help);
+}
 
 var AUTH_ERR={'auth/popup-blocked':'브라우저에서 로그인 팝업이 차단되었어요. 팝업 허용 후 다시 시도해 주세요.','auth/popup-closed-by-user':'Google 로그인 창이 닫혔어요. 다시 시도해 주세요.','auth/cancelled-popup-request':'로그인 요청이 취소되었어요. 다시 시도해 주세요.','auth/unauthorized-domain':'이 주소는 Google 로그인 허용 도메인에 등록되지 않았어요.','auth/network-request-failed':'인터넷 연결을 확인해 주세요.','auth/requires-recent-login':'다시 로그인한 뒤 진행해 주세요.'};
 function openAuth(tab,lead){
@@ -1072,8 +1077,8 @@ function appendOwnGuestbook(backFn){
   try{ localStorage.setItem('littlSeen',String(Date.now())); }catch(e){}
   hud();
   var gbSec=el('section','guestbookSection');
-  gbSec.appendChild(txt('h3','guestbookHeading','이웃이 남긴 방명록'));
-  gbSec.appendChild(txt('p','guestbookSub','방문한 이웃들이 나무 이야기에 남긴 댓글이에요. 지우고 싶은 글은 ‘지우기’를 눌러 삭제할 수 있어요.'));
+  gbSec.appendChild(txt('h3','guestbookHeading','이웃이 남긴 응원'));
+  gbSec.appendChild(txt('p','guestbookSub','방문한 이웃들이 나무 이야기에 남긴 댓글이에요.'));
   cheerBox=el('div','cheers');
   gbSec.appendChild(cheerBox);
   sheet.appendChild(gbSec);
@@ -1081,8 +1086,9 @@ function appendOwnGuestbook(backFn){
 }
 function openEdit(){
   if(!isMine()) return;
-  openSheet('나무 이야기','다른 사람들에게 보여요.');
+  openSheet('나무 이야기');
   sheet.classList.add('guestbookSheet','treeStorySheet');
+  addSheetTitleTip('다른 사람들에게 보여요.');
   sheet.appendChild(txt('p','lead',safe(T.name,'이름 없는 나무')));
   if(T.intro) sheet.appendChild(txt('p','treeStoryIntro',Filter.mask(T.intro)));
   sheet.appendChild(txt('p','story',T.story?Filter.mask(T.story):'아직 적힌 이야기가 없어요.'));
@@ -1091,8 +1097,9 @@ function openEdit(){
 }
 function openEditForm(){
   if(!isMine()) return;
-  openSheet('나무 이야기','다른 사람들에게 보여요.');
+  openSheet('나무 이야기');
   sheet.classList.add('treeStorySheet','treeStoryEditSheet');
+  addSheetTitleTip('다른 사람들에게 보여요.');
   var n=field('나무 이름 (팻말)','input',T.name,8), i=field('소개 한 줄','input',T.intro,40), s=field('나무 이야기','textarea',T.story,CONFIG.storyMaxLength,6), note=formNote();
   n.placeholder='나무에게 이름을 지어주세요'; i.placeholder='어떤 나무인가요?'; s.placeholder='이 나무를 키우게 된 이야기를 적어주세요';
   var saveBtn=bigBtn('저장',function(){
@@ -1488,7 +1495,7 @@ function openCloud(c){
   }
 }
 
-/* 방명록 */
+/* 응원 */
 function appendCheerComposer(){
   var ta=field('응원 남기기','textarea','',CONFIG.messageMaxLength,2), note=formNote(), a=actions(); ta.placeholder='예) 오늘도 잘 자라렴';
   a.appendChild(bigBtn('남기기',function(){
@@ -1501,19 +1508,19 @@ function appendCheerComposer(){
 function openVisitorStory(){
   if(!T) return;
   openSheet('나무 이야기');
-  sheet.classList.add('guestbookSheet');
+  sheet.classList.add('guestbookSheet','treeStorySheet');
   sheet.appendChild(txt('p','lead',safe(T.name,'이름 없는 나무')));
-  if(T.intro) sheet.appendChild(txt('p','sub',Filter.mask(T.intro)));
+  if(T.intro) sheet.appendChild(txt('p','treeStoryIntro',Filter.mask(T.intro)));
   sheet.appendChild(txt('p','story',T.story?Filter.mask(T.story):'아직 적힌 이야기가 없어요.'));
   appendCheerComposer();
-  sheet.appendChild(txt('h3','guestbookHeading','방명록'));
+  sheet.appendChild(txt('h3','guestbookHeading','응원'));
   cheerBox=el('div','cheers'); sheet.appendChild(cheerBox); renderCheerList(openVisitorStory);
 }
 function openCheer(){
   if(!T) return;
   var mine=isMine();
   if(!mine){ openVisitorStory(); return; }
-  openSheet('우리 나무 방명록','이웃들이 나무 이야기에 남긴 글과 하트 '+(T.hearts||0)+'개를 볼 수 있어요. 지우고 싶은 글은 오른쪽 ‘지우기’를 눌러 바로 삭제할 수 있어요.');
+  openSheet('우리 나무 응원','이웃들이 나무 이야기에 남긴 글과 하트 '+(T.hearts||0)+'개를 볼 수 있어요. 지우고 싶은 글은 오른쪽 ‘지우기’를 눌러 바로 삭제할 수 있어요.');
   sheet.classList.add('guestbookSheet');
   try{ localStorage.setItem('littlSeen',String(Date.now())); }catch(e){}
   hud();
@@ -1522,7 +1529,7 @@ function openCheer(){
 function openCheerDeleteConfirm(m,backFn){
   if(!m||!view) return;
   var backTo=backFn||function(){ isMine()?openCheer():openVisitorStory(); };
-  openSheet('이 방명록 글을 지울까요?','지운 글은 다시 되돌릴 수 없어요.');
+  openSheet('이 응원을 지울까요?','지운 글은 다시 되돌릴 수 없어요.');
   sheet.classList.add('guestbookSheet');
   var preview=el('div','guestbookPreview');
   preview.appendChild(txt('b','',safe(m.fromName,'이웃')));
@@ -1537,10 +1544,10 @@ function openCheerDeleteConfirm(m,backFn){
       msgs=msgs.filter(function(x){ return x.id!==m.id; });
       hud();
       backTo();
-      toast('방명록 글을 지웠어요.');
+      toast('응원을 지웠어요.');
     }).catch(function(err){
       cancelBtn.disabled=false; delBtn.disabled=false; delBtn.textContent='지우기';
-      var rep=recordError('방명록 글을 지우지 못했어요',err,'방명록 글 삭제');
+      var rep=recordError('응원을 지우지 못했어요',err,'응원 삭제');
       note.textContent='글을 지우지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
       attachTroubleshootBtn(note,rep,function(){ openCheerDeleteConfirm(m,backTo); });
     });
@@ -1550,7 +1557,7 @@ function openCheerDeleteConfirm(m,backFn){
 }
 function renderCheerList(backFn){
   if(!cheerBox) return; cheerBox.innerHTML='';
-  if(!msgs.length){ cheerBox.appendChild(txt('p','guestbookEmpty',isMine()?'아직 남겨진 방명록 글이 없어요.':'아직 남겨진 방명록 글이 없어요. 첫 글을 남겨 보세요.')); return; }
+  if(!msgs.length){ cheerBox.appendChild(txt('p','guestbookEmpty',isMine()?'아직 남겨진 응원이 없어요.':'아직 남겨진 응원이 없어요. 첫 응원을 남겨 보세요.')); return; }
   msgs.forEach(function(m){
     var row=el('div','cheer'), bad=Filter.bad(m.text);
     row.appendChild(txt('b','',safe(m.fromName,'이웃')));
@@ -1696,8 +1703,8 @@ function openAdminGuide(){
       body:'화면에 떠다니는 구름 중 지우고 싶은 구름을 누르세요. 창 오른쪽 아래에 있는 빨간 테두리 버튼 ‘이 구름 삭제하기’를 누르면 하늘에서 바로 지워집니다.'
     },
     {
-      title:'3. 이웃 나무·내 나무 방명록 지우기',
-      body:'‘나무 이야기’ 창 아래쪽의 방명록(또는 내 나무 화면 아래쪽 하트 숫자)을 누르면 이웃들이 남긴 방명록 댓글을 볼 수 있어요. 각 글 오른쪽 위의 ‘지우기’를 누른 뒤 확인하면 부적절한 글을 바로 삭제할 수 있습니다.'
+      title:'3. 이웃 나무·내 나무 응원 지우기',
+      body:'‘나무 이야기’ 창 아래쪽의 응원(또는 내 나무 화면 아래쪽 하트 숫자)을 누르면 이웃들이 남긴 응원을 볼 수 있어요. 각 글 오른쪽 위의 ‘지우기’를 누른 뒤 확인하면 부적절한 글을 바로 삭제할 수 있습니다.'
     },
     {
       title:'4. 우리 이야기(일기) 지우기와 답장 미리 보기',
@@ -2129,7 +2136,7 @@ function openTutorial(first,onDone){
       title:'이야기와 가족',
       items:[
         {icon:ICON.cloud, name:'구름 띄우기', desc:'24시간 동안 하늘을 지나가는 한마디를 띄워요. 하루 한 번 띄울 수 있어요.'},
-        {icon:ICON.book, name:'나무 이야기', desc:'나무 이름과 소개·이야기를 적고, 이웃이 남긴 방명록 댓글을 읽어요.'},
+        {icon:ICON.book, name:'나무 이야기', desc:'나무 이름과 소개·이야기를 적고, 이웃이 남긴 응원을 읽어요.'},
         {icon:ICON.note, name:'우리 이야기', desc:'날짜를 눌러 글을 남겨요. 같은 나무에 연결된 가족은 서로의 기록을 볼 수 있어요.'},
         {icon:ICON.family, name:'우리 가족', desc:'함께 돌보는 가족을 보고 초대 코드를 만들거나 연결을 정리할 수 있어요.'}
       ]
@@ -2510,7 +2517,7 @@ function drawPins(){
     var t=occupied[d.dataset.id], mine=!mineShown&&!!mineId&&d.dataset.id===mineId, name=t&&t.name?safe(t.name):F[+d.dataset.f][0]+' '+d.dataset.n+'번'; if(mine) mineShown=true;
     var state=mine?'내 나무':(t?'이웃 나무':'');
     d.classList.toggle('has',!!t); d.classList.toggle('mine',mine);
-    var spot=F[+d.dataset.f][0].replace(/숲$/,'밭')+' '+d.dataset.n+'번'; d.setAttribute('aria-label',spot+(state?' · '+state:'')); d.title=''; d.querySelector('.treeTip').textContent=spot;
+    var spot=F[+d.dataset.f][0]+' '+d.dataset.n+'번'; d.setAttribute('aria-label',spot+(state?' · '+state:'')); d.title=''; d.querySelector('.treeTip').textContent=spot;
   });
 }
 function positionMap(){
