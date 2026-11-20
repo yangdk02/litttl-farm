@@ -6,11 +6,54 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontDir = path.join(__dirname, 'front');
-const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
 
+export function createApp() {
+const app = express();
+
+app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
+
+app.use((_req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      "script-src 'self' https://www.gstatic.com https://apis.google.com https://accounts.google.com https://www.googletagmanager.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com https://www.gstatic.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
+      "frame-src https://*.firebaseapp.com https://accounts.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; '),
+  });
+  next();
+});
+
+const rateBuckets = new Map();
+function allowRate(bucketName, key, windowMs, maxHits) {
+  const now = Date.now();
+  const fullKey = `${bucketName}:${key}`;
+  const prev = rateBuckets.get(fullKey) || [];
+  const recent = prev.filter((ts) => now - ts < windowMs);
+  if (recent.length >= maxHits) {
+    rateBuckets.set(fullKey, recent);
+    return false;
+  }
+  recent.push(now);
+  rateBuckets.set(fullKey, recent);
+  return true;
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || 'unknown';
+}
 
 function formatKstTime(iso) {
   const d = iso ? new Date(iso) : new Date();
@@ -38,7 +81,10 @@ function metNoWeatherText(symbol, precip) {
   return '';
 }
 
-async function fetchMetNoWeather() {
+let weatherCache = { data: null, fetchedAt: 0 };
+const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function fetchMetNoWeatherOnce() {
   const url = 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=33.249&lon=126.278';
   const response = await fetch(url, {
     headers: {
@@ -83,14 +129,40 @@ async function fetchMetNoWeather() {
   };
 }
 
-app.get('/api/weather', async (_req, res) => {
+async function fetchMetNoWeather() {
+  const now = Date.now();
+  if (weatherCache.data && now - weatherCache.fetchedAt < WEATHER_CACHE_TTL_MS) {
+    return weatherCache.data;
+  }
+  try {
+    const fresh = await fetchMetNoWeatherOnce();
+    weatherCache = { data: fresh, fetchedAt: Date.now() };
+    return fresh;
+  } catch (firstErr) {
+    await new Promise((r) => setTimeout(r, 350));
+    try {
+      const retry = await fetchMetNoWeatherOnce();
+      weatherCache = { data: retry, fetchedAt: Date.now() };
+      return retry;
+    } catch {
+      if (weatherCache.data && now - weatherCache.fetchedAt < 60 * 60 * 1000) {
+        return { ...weatherCache.data, stale: true };
+      }
+      throw firstErr;
+    }
+  }
+}
+
+app.get('/api/weather', async (req, res) => {
+  if (!allowRate('weather', getClientIp(req), 15 * 60 * 1000, 60)) {
+    return res.status(429).json({ error: '날씨 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.' });
+  }
   try {
     const weather = await fetchMetNoWeather();
     return res
       .set({
         'Cache-Control': 'no-store, max-age=0',
         Pragma: 'no-cache',
-        'X-Content-Type-Options': 'nosniff',
       })
       .json(weather);
   } catch {
@@ -101,25 +173,17 @@ app.get('/api/weather', async (_req, res) => {
   }
 });
 
-const diaryReplyHits = new Map();
-function allowDiaryReplyRate(key) {
-  const now = Date.now();
-  const windowMs = 60 * 60 * 1000;
-  const maxHits = 20;
-  const prev = diaryReplyHits.get(key) || [];
-  const recent = prev.filter((ts) => now - ts < windowMs);
-  if (recent.length >= maxHits) {
-    diaryReplyHits.set(key, recent);
-    return false;
+function sanitizeAiReply(raw) {
+  let reply = String(raw || '').trim();
+  reply = reply.replace(/^\[나무가\]\s*/g, '').replace(/[*#]/g, '').trim();
+  if (reply.length > 900) {
+    reply = reply.slice(0, 900).trim();
   }
-  recent.push(now);
-  diaryReplyHits.set(key, recent);
-  return true;
+  return reply;
 }
 
 app.post('/api/diary-reply', async (req, res) => {
-  const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || 'unknown';
-  if (!allowDiaryReplyRate(clientIp)) {
+  if (!allowRate('diary-reply', getClientIp(req), 60 * 60 * 1000, 20)) {
     return res.status(429).json({ error: '요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.' });
   }
 
@@ -157,30 +221,41 @@ app.post('/api/diary-reply', async (req, res) => {
     `일기 내용:\n${text}`,
   ].filter(Boolean).join('\n');
 
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const generateOnce = () => ai.models.generateContent({
+    model: 'gemini-3.1-flash-lite',
+    contents,
+    config: {
+      systemInstruction,
+    },
+  });
+
   try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents,
-      config: {
-        systemInstruction,
-      },
-    });
-    const reply = String(response?.text || '').trim();
+    let response;
+    try {
+      response = await generateOnce();
+    } catch (firstErr) {
+      const firstStatus = Number(firstErr?.status) || 0;
+      if (firstStatus === 400 || firstStatus === 403 || firstStatus === 404) throw firstErr;
+      await new Promise((r) => setTimeout(r, 450));
+      response = await generateOnce();
+    }
+
+    const reply = sanitizeAiReply(response?.text);
     if (!reply) {
       return res.status(502).json({ error: '나무의 답장을 받아오지 못했어요. 잠시 뒤 다시 시도해 주세요.' });
     }
     return res
       .set({
         'Cache-Control': 'no-store, max-age=0',
-        'X-Content-Type-Options': 'nosniff',
       })
       .json({ reply });
   } catch (err) {
@@ -217,6 +292,7 @@ app.get('/js/config.js', (_req, res) => {
           firestoreDatabaseId: parsed.firestoreDatabaseId || '',
           storageBucket: parsed.storageBucket || '',
           messagingSenderId: parsed.messagingSenderId || '',
+          measurementId: parsed.measurementId || '',
         };
       }
     } catch {}
@@ -232,6 +308,7 @@ app.get('/js/config.js', (_req, res) => {
       projectId: process.env.FIREBASE_PROJECT_ID || '',
       appId: process.env.FIREBASE_APP_ID || '',
       firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || '',
+      measurementId: process.env.FIREBASE_MEASUREMENT_ID || '',
     };
   }
 
@@ -242,15 +319,33 @@ app.get('/js/config.js', (_req, res) => {
   res.type('application/javascript; charset=utf-8').set('Cache-Control', 'no-store').send(source);
 });
 
-app.use(express.static(frontDir, { index: 'index.html' }));
+app.use(express.static(frontDir, {
+  index: 'index.html',
+  setHeaders(res, filePath) {
+    if (/\.(png|svg|ico|woff2|ttf)$/i.test(filePath)) {
+      res.set('Cache-Control', 'public, max-age=604800, immutable');
+    } else if (/\.html$/i.test(filePath)) {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else if (/\.(css|js)$/i.test(filePath)) {
+      res.set('Cache-Control', 'public, max-age=300');
+    }
+  },
+}));
 
 app.use((req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api/')) {
-    return res.sendFile(path.join(frontDir, 'index.html'));
+    return res.set('Cache-Control', 'no-cache, no-store, must-revalidate').sendFile(path.join(frontDir, 'index.html'));
   }
   next();
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`LITTTL. FARM server listening at http://${HOST}:${PORT}`);
-});
+return app;
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const app = createApp();
+  app.listen(PORT, HOST, () => {
+    console.log(`LITTTL. FARM server listening at http://${HOST}:${PORT}`);
+  });
+}

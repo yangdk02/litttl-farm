@@ -8,6 +8,23 @@
     ],
     "headers": [
       {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          }
+        ]
+      },
+      {
         "source": "/index.html",
         "headers": [
           {
@@ -17,7 +34,7 @@
         ]
       },
       {
-        "source": "/**/*.@(png|woff2|ttf)",
+        "source": "/**/*.@(png|svg|woff2|ttf)",
         "headers": [
           {
             "key": "Cache-Control",

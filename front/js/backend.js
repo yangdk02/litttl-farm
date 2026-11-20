@@ -3,7 +3,8 @@
    Live: Firebase에 저장해서 모든 회원이 함께 봄
    화면 코드는 두 방식을 똑같이 사용합니다. */
 function DemoBackend(){
-  var KEY='littlLocalV1', db=null, subs=[], authCb=null, session=null;
+  var KEY='littlLocalV1', CONSENT_KEY='litttlAnalyticsConsent', db=null, subs=[], authCb=null, session=null, analyticsEvents=[];
+  function hasAnalyticsConsent(){ try{ return localStorage.getItem(CONSENT_KEY)==='granted'; }catch(e){ return false; } }
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
   function write(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
   function seed(){ return {accounts:{},users:{},trees:{},messages:{},clouds:[],invites:{},presence:{},diaries:{},exampleVersion:2}; }
@@ -67,7 +68,17 @@ function DemoBackend(){
       Object.keys(db.invites).forEach(function(code){ if(db.invites[code].ownerUid===uid) delete db.invites[code]; });
       delete db.users[uid]; session=null; try{ localStorage.removeItem('littlDemoSession'); localStorage.removeItem('littlMine'); }catch(e){} commit(); if(authCb) setTimeout(function(){ authCb(null); },0); return Promise.resolve();
     },
-    resetDemo:function(){ db=seed(); commit(); return this.signOut(); }
+    setAnalyticsConsent:function(granted){
+      try{ localStorage.setItem(CONSENT_KEY,granted?'granted':'denied'); }catch(e){}
+      return Promise.resolve(!!granted);
+    },
+    trackEvent:function(name,params){
+      if(!hasAnalyticsConsent()) return false;
+      analyticsEvents.push({name:String(name||''),params:clone(params||{}),ts:Date.now()});
+      return true;
+    },
+    getAnalyticsEvents:function(){ return clone(analyticsEvents); },
+    resetDemo:function(){ db=seed(); analyticsEvents=[]; commit(); return this.signOut(); }
   };
 }
 
@@ -190,7 +201,41 @@ function LiveBackend(){
       });
     }
 
-    var ADMIN_EMAIL='yangdk02@gmail.com', purgedCloudIds={};
+    var ADMIN_EMAIL='yangdk02@gmail.com', purgedCloudIds={}, CONSENT_KEY='litttlAnalyticsConsent';
+    var analyticsMod=null, analyticsInst=null, analyticsLoading=null;
+    function hasAnalyticsConsent(){ try{ return localStorage.getItem(CONSENT_KEY)==='granted'; }catch(e){ return false; } }
+    function clearGaCookies(){
+      try{
+        if(typeof document==='undefined'||!document.cookie) return;
+        document.cookie.split(';').forEach(function(pair){
+          var name=pair.split('=')[0].trim();
+          if(name==='_ga'||name.indexOf('_ga_')===0||name==='_gid'){
+            document.cookie=name+'=; Max-Age=0; path=/';
+          }
+        });
+      }catch(e){}
+    }
+    function ensureAnalytics(){
+      if(!hasAnalyticsConsent()||!CONFIG.firebase||!CONFIG.firebase.measurementId) return Promise.resolve(null);
+      if(analyticsInst){
+        try{ analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,true); }catch(e){}
+        return Promise.resolve(analyticsInst);
+      }
+      if(analyticsLoading) return analyticsLoading;
+      analyticsLoading=import(base+'firebase-analytics.js').then(function(mod){
+        analyticsMod=mod;
+        return typeof mod.isSupported==='function'?mod.isSupported():true;
+      }).then(function(ok){
+        if(!ok||!hasAnalyticsConsent()) return null;
+        analyticsInst=analyticsMod.getAnalytics(app);
+        analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,true);
+        return analyticsInst;
+      }).catch(function(){ return null; }).then(function(inst){
+        analyticsLoading=null;
+        return inst;
+      });
+      return analyticsLoading;
+    }
     function purgeExpiredClouds(cutoff){
       if(!auth.currentUser) return Promise.resolve();
       var q=fsMod.query(fsMod.collection(db,'clouds'),fsMod.where('ts','<=',cutoff),fsMod.limit(50));
@@ -291,9 +336,9 @@ function LiveBackend(){
         return wrapFs(fsMod.deleteDoc(fsMod.doc(db,'trees',id,'messages',mid)),OperationType.DELETE,'trees/'+id+'/messages/'+mid);
       },
       watchClouds:function(cb){
-        var q=fsMod.query(fsMod.collection(db,'clouds'),fsMod.orderBy('ts','desc'),fsMod.limit(100));
+        var q=fsMod.query(fsMod.collection(db,'clouds'),fsMod.orderBy('ts','desc'),fsMod.limit(60));
         purgeExpiredClouds(Date.now()-24*60*60*1000-5000);
-        var timer=setInterval(function(){ purgeExpiredClouds(Date.now()-24*60*60*1000-5000); },60*1000);
+        var timer=setInterval(function(){ if(!document.hidden) purgeExpiredClouds(Date.now()-24*60*60*1000-5000); },5*60*1000);
         var unsub=fsMod.onSnapshot(q,function(snap){
           var now=Date.now(), cutoff=now-24*60*60*1000, delCutoff=cutoff-5000, list=[];
           snap.docs.forEach(function(d){
@@ -391,6 +436,22 @@ function LiveBackend(){
         }).then(function(){
           return authMod.deleteUser(user);
         });
+      },
+      setAnalyticsConsent:function(granted){
+        try{ localStorage.setItem(CONSENT_KEY,granted?'granted':'denied'); }catch(e){}
+        if(granted) return ensureAnalytics().then(function(){ return true; });
+        if(analyticsMod&&analyticsInst){
+          try{ analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,false); }catch(e){}
+        }
+        clearGaCookies();
+        return Promise.resolve(false);
+      },
+      trackEvent:function(name,params){
+        if(!hasAnalyticsConsent()||!CONFIG.firebase||!CONFIG.firebase.measurementId) return false;
+        ensureAnalytics().then(function(inst){
+          if(inst&&analyticsMod&&hasAnalyticsConsent()) analyticsMod.logEvent(inst,name,params||{});
+        }).catch(function(){});
+        return true;
       }
     };
   });

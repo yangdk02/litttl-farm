@@ -141,8 +141,8 @@ service cloud.firestore {
             || (
               (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt)
               && (!resource.data.keys().hasAny(['comment']) || resource.data.comment.size() == 0 || request.resource.data.comment == resource.data.comment)
-              && (!resource.data.keys().hasAny(['replyReadyAt']) || request.resource.data.replyReadyAt == resource.data.replyReadyAt)
-              && (!resource.data.keys().hasAny(['replyGenerated']) || request.resource.data.replyGenerated == resource.data.replyGenerated)
+              && (!resource.data.keys().hasAny(['replyReadyAt']) || resource.data.replyReadyAt == null || request.resource.data.replyReadyAt == resource.data.replyReadyAt)
+              && (!resource.data.keys().hasAny(['replyGenerated']) || resource.data.replyGenerated == false || request.resource.data.replyGenerated == resource.data.replyGenerated)
             )
           );
         allow delete: if isValidId(day) && (

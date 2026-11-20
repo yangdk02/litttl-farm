@@ -3,15 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LITTTL. FARM</title>
+<title>LITTTL. FARM.</title>
 <meta name="description" content="제주 서귀포 벼락밭 감귤나무 키우기 및 이웃 소통 웹 애플리케이션">
-<meta property="og:title" content="LITTTL. FARM">
+<meta property="og:title" content="LITTTL. FARM.">
 <meta property="og:description" content="제주 서귀포 벼락밭 감귤나무 키우기 및 이웃 소통 웹 애플리케이션">
+<link rel="icon" href="./assets/favicon-2477d69ee1accb52dccf588f36f876ad.ico">
+<link rel="preload" href="./fonts/Hakgyoansim-Nadeuri-L.ttf" as="font" type="font/truetype" crossorigin>
+<link rel="preload" href="./fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <script src="./js/config.js"></script>
 
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body data-page="scene" data-mode="out">
+<a class="skipLink" href="#world">본문으로 바로가기</a>
+<div id="netBanner" role="status" aria-live="polite" hidden></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <filter id="paint" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency=".022" numOctaves="3" seed="7" result="wave"/><feDisplacementMap in="SourceGraphic" in2="wave" scale="20" xChannelSelector="R" yChannelSelector="G" result="shape"/><feTurbulence type="fractalNoise" baseFrequency=".28 .4" numOctaves="3" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 1.42" result="grain"/><feComposite in="shape" in2="grain" operator="in"/></filter>
   <filter id="paintBase" x="-15%" y="-15%" width="130%" height="130%"><feTurbulence type="fractalNoise" baseFrequency=".022" numOctaves="3" seed="7" result="wave"/><feDisplacementMap in="SourceGraphic" in2="wave" scale="20" xChannelSelector="R" yChannelSelector="G"/></filter>
@@ -53,7 +58,7 @@
     <div id="emptyBar" hidden></div>
   </footer>
   <footer id="siteFooter">
-    <nav class="footerLinks" aria-label="회사와 법적 안내"><a href="https://litttl.com/ourstory.html" target="_blank" rel="noopener">회사소개</a><a href="#terms" data-legal="terms">이용약관</a><a href="#privacy" data-legal="privacy">개인정보처리방침</a><a href="mailto:unclelitttl@gmail.com">문의</a></nav>
+    <nav class="footerLinks" aria-label="회사와 법적 안내"><a href="https://litttl.com/ourstory.html" target="_blank" rel="noopener">회사소개</a><a href="#terms" data-legal="terms">이용약관</a><a href="#privacy" data-legal="privacy">개인정보처리방침</a><button type="button" class="footerLinkBtn" id="analyticsPrefBtn">분석 쿠키 설정</button><a href="mailto:unclelitttl@gmail.com">문의</a></nav>
     <div class="footerGrid">
       <section><h3>CONTACT</h3><p><a href="mailto:unclelitttl@gmail.com">unclelitttl@gmail.com</a><br><a href="tel:0647555060">064-755-5060</a><br><a href="https://pf.kakao.com/_ctxlxej" target="_blank" rel="noopener">카카오톡채널</a><br><a href="https://www.instagram.com/uncle.litttl1988/" target="_blank" rel="noopener">Instagram</a><br><a href="https://pf.kakao.com/_ctxlxej" target="_blank" rel="noopener">KakaoTalk Channel</a></p></section>
       <section><h3>LOCATION</h3><p>OFFLINE SHOP/KITCHEN 제주 서귀포시 일주서로2048번길 156-5<br>FARM 제주 서귀포시 보성상로 88<br>STAY 제주 서귀포시 덕수회관로 102</p></section>
@@ -85,6 +90,7 @@
   </div>
 </section>
 
+<div id="consentBanner" role="region" aria-label="분석 쿠키 동의" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <dialog id="sheet"></dialog>
 
