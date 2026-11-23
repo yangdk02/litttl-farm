@@ -131,25 +131,6 @@ function DemoBackend(){
       commit();
       return Promise.resolve({ok:true,clearedUsers:clearedUsers});
     },
-    adminCleanupSeed:function(){
-      var seedUsers=Object.keys(db.users||{}).filter(function(uid){
-        var u=db.users[uid];
-        return (!session||uid!==session.uid)&&(u&&u.seed||/^seed-/.test(uid));
-      });
-      var seedTrees=Object.keys(db.trees||{}).filter(function(tid){
-        var t=db.trees[tid];
-        return t&&(t.seed||/^virtual-seed-/.test(tid));
-      });
-      var self=this;
-      return Promise.all(seedUsers.map(function(uid){ return self.adminCleanupUser(uid); })).then(function(){
-        return Promise.all(seedTrees.filter(function(tid){ return !!db.trees[tid]; }).map(function(tid){ return self.adminDeleteTree(tid); }));
-      }).then(function(){
-        var before=(db.clouds||[]).length;
-        db.clouds=(db.clouds||[]).filter(function(c){ return !(c&&(c.seed||/^seed-/.test(c.id))); });
-        commit();
-        return {users:seedUsers.length,trees:seedTrees.length,clouds:before-(db.clouds||[]).length};
-      });
-    },
     resetDemo:function(){ db=seed(); analyticsEvents=[]; commit(); return this.signOut(); }
   };
 }
@@ -576,30 +557,6 @@ function LiveBackend(){
           return deleteTreeDeep(treeRef(treeId),{isAdmin:true}).then(function(){
             return {ok:true,clearedUsers:clearedUsers};
           });
-        });
-      },
-      adminCleanupSeed:function(){
-        if(!auth.currentUser||auth.currentUser.email!==ADMIN_EMAIL) return Promise.reject({code:'admin/forbidden'});
-        var self=this, counts={users:0,trees:0,clouds:0};
-        return Promise.all([
-          self.adminListUsers(),
-          wrapFs(fsMod.getDocs(fsMod.collection(db,'trees')),OperationType.LIST,'trees').then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id},d.data()); }); }),
-          wrapFs(fsMod.getDocs(fsMod.collection(db,'clouds')),OperationType.LIST,'clouds').then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id},d.data()); }); })
-        ]).then(function(res){
-          var seedUsers=res[0].filter(function(u){ return u.uid!==auth.currentUser.uid&&(u.seed||/^seed-/.test(u.uid)); });
-          var seedTrees=res[1].filter(function(t){ return t.seed||/^virtual-seed-/.test(t.id); });
-          var seedClouds=res[2].filter(function(c){ return c.seed||/^seed-/.test(c.id); });
-          counts.users=seedUsers.length; counts.trees=seedTrees.length; counts.clouds=seedClouds.length;
-          return seedUsers.reduce(function(p,u){ return p.then(function(){ return self.adminCleanupUser(u.uid); }); },Promise.resolve())
-            .then(function(){
-              return seedTrees.reduce(function(p,t){ return p.then(function(){ return self.adminDeleteTree(t.id); }); },Promise.resolve());
-            })
-            .then(function(){
-              return Promise.all(seedClouds.map(function(c){
-                return wrapFs(fsMod.deleteDoc(fsMod.doc(db,'clouds',c.id)),OperationType.DELETE,'clouds/'+c.id).catch(function(){});
-              }));
-            })
-            .then(function(){ return counts; });
         });
       }
     };

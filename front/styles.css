@@ -144,7 +144,8 @@ body[data-mode=visit] #place,body[data-mode=empty] #place,body[data-mode=out] #p
 #emptyBar .empty-actions .big{width:100%}
 .settings-actions{display:flex;flex-direction:column;align-items:stretch;gap:12px;width:100%;margin-top:12px}
 .settings-actions .big{width:100%}
-.danger{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 3px var(--ink)}
+.danger,.big.danger,.big.off.danger{background:#fff;color:#b91c1c;box-shadow:inset 0 0 0 2.5px #c62828}
+.danger:hover,.danger:focus-visible,.big.danger:hover,.big.danger:focus-visible,.big.off.danger:hover,.big.off.danger:focus-visible{background:#fff5f5;color:#991b1b;box-shadow:inset 0 0 0 2.5px #991b1b}
 .passwordWrap{position:relative}.passwordWrap input{padding-right:70px}.passwordToggle{position:absolute;right:8px;bottom:7px;min-width:auto;min-height:40px;padding:0 8px;border:0;border-radius:0;background:transparent;font-family:var(--hand);font-size:20px;transition:color .18s}
 .treeChoiceSections{display:grid;gap:24px;margin-top:12px}.treeChoiceBlock{display:grid;gap:10px}.treeChoiceBlock h3{margin:0;font-size:24px;line-height:1.25}.treeChoiceHelp{margin:0;font-size:16px;line-height:1.45;font-family:var(--read);color:#444}.treeChoiceHelp a{color:#000;text-underline-offset:3px}.treeChoiceHelp a:hover{color:var(--tangerine)}.treeCodeRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.treeCodeRow label{margin:0}.treeCodeRow .big{min-width:82px}.treeChoiceDivider{height:1px;background:#bbb}
 #siteFooter{position:absolute;z-index:7;left:50%;top:1120px;transform:translateX(-50%);display:none;width:min(1100px,calc(100vw - 40px));padding:34px 28px 48px;border-top:2px solid var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;color:#322a25;background:rgba(255,255,255,.94)}
@@ -232,7 +233,7 @@ body[data-mode=out] #bottom,body[data-mode=empty] #bottom{top:46%;bottom:auto;he
 .fruitDots{display:none;position:absolute;z-index:3;left:16%;top:16%;width:68%;height:46%;pointer-events:none;background:radial-gradient(circle at 22% 28%,#F78403 0 8.5%,#23231D 9% 12%,transparent 13%),radial-gradient(circle at 76% 24%,#F78403 0 8.5%,#23231D 9% 12%,transparent 13%),radial-gradient(circle at 18% 72%,#F78403 0 8.5%,#23231D 9% 12%,transparent 13%),radial-gradient(circle at 80% 68%,#F78403 0 8.5%,#23231D 9% 12%,transparent 13%)}
 .mapTree.mine .fruitDots{display:block}
 .treeNumber{position:absolute;z-index:7;left:50%;top:40%;min-width:28px;height:28px;padding:1px 5px;border:0;background:transparent;color:#000;font-family:var(--hand);font-size:20px;line-height:26px;text-align:center;transform:translate(-50%,-50%);-webkit-text-stroke:4px #fff;paint-order:stroke fill}
-.treeTip{position:absolute;z-index:12;left:50%;bottom:calc(100% + 14px);width:max-content;max-width:240px;padding:5px 9px;border:0;border-radius:6px;background:var(--paper);font-family:var(--hand);font-size:13.5px;line-height:1.4;white-space:pre-line;text-align:center;transform:translateX(-50%);opacity:0;pointer-events:none;box-shadow:none}
+.treeTip{position:absolute;z-index:12;left:50%;bottom:calc(100% + 14px);width:max-content;max-width:240px;padding:5px 9px;border:0;border-radius:6px;background:var(--paper);font-family:var(--read);font-size:13.5px;line-height:1.4;letter-spacing:0;white-space:pre-line;text-align:center;transform:translateX(-50%);opacity:0;pointer-events:none;box-shadow:none}
 .mapTree:hover .treeTip,.mapTree:focus-visible .treeTip{opacity:1}
 @media(max-width:900px){#treeLayer{grid-template-columns:repeat(var(--tree-cols,6),78px);grid-auto-rows:94px;padding-inline:20px;gap:12px 14px}.mapTree{width:78px;height:94px}}
 @media(max-width:700px){#mapMain{padding:18px 14px 38px}#mapTools{grid-template-columns:1fr;padding:13px 12px;gap:0}#mapFindRow{gap:6px;flex-wrap:nowrap;align-items:stretch}#mapFind{flex:1 1 160px;min-width:0}#mapFind .find-controls{width:100%;gap:5px;align-items:stretch}.find-search{flex:1 1 0;width:auto;min-width:0}#mapFind input{width:100%;min-width:0;padding-inline:8px}#mapFind .big,#randomBtn{min-height:48px;padding-inline:7px}#randomBtn{flex:0 1 auto}#mapBox:not(.zoomed){overflow-x:auto;min-height:0;aspect-ratio:auto;scrollbar-color:var(--ink) transparent}#mapBox:not(.zoomed) #map{width:1100px;min-height:0;aspect-ratio:1448/1086}#mapFarmLabel{left:14px;right:auto;top:14px;font-size:22px}#mapBox.zoomed #mapFarmLabel{left:152px;right:auto;top:22px;font-size:20px}.forestName{font-size:20px;padding:3px 5px}#treeLayer{grid-template-columns:repeat(var(--tree-cols,3),72px);grid-auto-rows:86px;gap:10px 10px;padding:82px 14px 22px}.mapTree{width:72px;height:86px}.treeNumber{min-width:28px;height:28px;padding:1px 5px;line-height:26px}#overviewBtn{left:14px;top:14px}}
@@ -494,11 +495,6 @@ body[data-mode=links] #mound,body[data-mode=out] #mound,body[data-mode=empty] #m
 .adminCleanupNotice{padding:13px 15px;border:2px solid var(--ink);border-radius:14px;background:#fffdf9;font-family:var(--read);font-size:14.5px;line-height:1.55;color:#222}
 .adminCleanupNotice p{margin:0}
 .adminCleanupSubNotice{margin-top:6px!important;color:#555;font-size:13.5px}
-.adminCleanupSeedBar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:13px 15px;border:2px solid var(--ink);border-radius:14px;background:#fff8ee;font-family:var(--read)}
-.adminCleanupSeedInfo{min-width:0}
-.adminCleanupSeedInfo strong{display:block;font-size:15px;font-weight:700;color:var(--ink);line-height:1.35}
-.adminCleanupSeedInfo p{margin:3px 0 0;font-size:13.5px;line-height:1.45;color:var(--deep)}
-.adminCleanupSeedBar .big{flex:none;min-height:44px;padding:9px 14px;font-size:15px;font-weight:700}
 .adminCleanupTabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 .adminCleanupTabs .big{min-height:46px;padding:9px 12px;font-size:16px;font-weight:700}
 .adminCleanupTabs .big[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -514,15 +510,14 @@ body[data-mode=links] #mound,body[data-mode=out] #mound,body[data-mode=empty] #m
 .adminCleanupName{font-size:16px;font-weight:700;line-height:1.3;color:var(--ink);word-break:break-word}
 .adminCleanupBadge{display:inline-flex;align-items:center;padding:2px 7px;border:1.5px solid var(--ink);border-radius:6px;background:#faf8f5;font-size:12px;font-weight:700;line-height:1.3;color:var(--ink)}
 .adminCleanupBadge.self{background:#fff3e6;border-color:var(--tangerine);color:var(--tangerine-ink)}
-.adminCleanupBadge.seed{background:#eef6ea;border-color:#528e29;color:#275313}
 .adminCleanupSub{margin:2px 0 0;font-size:13.5px;line-height:1.45;color:#444;word-break:break-word}
 .adminCleanupUid{margin:4px 0 0;font-family:var(--mono);font-size:12.5px;line-height:1.4;color:#222;word-break:break-all}
 .adminCleanupItemAct{flex:none;display:flex;align-items:center}
 .adminCleanupItemAct .mini{min-height:42px;padding:7px 13px;font-size:14px;font-weight:700;border-width:2px}
 .adminCleanupEmpty{margin:12px 0;text-align:center;font-family:var(--read);font-size:14.5px;color:var(--deep)}
 @media(max-width:600px){
-  .adminCleanupSeedBar,.adminCleanupOrphanRow,.adminCleanupItem{flex-direction:column;align-items:stretch}
-  .adminCleanupSeedBar .big,.adminCleanupOrphanRow .mini,.adminCleanupItemAct .mini{width:100%}
+  .adminCleanupOrphanRow,.adminCleanupItem{flex-direction:column;align-items:stretch}
+  .adminCleanupOrphanRow .mini,.adminCleanupItemAct .mini{width:100%}
 }
 
 .guestbookSection{margin-top:24px;padding-top:18px;border-top:2px dashed var(--mid)}
@@ -567,6 +562,7 @@ body[data-mode=links] #mound,body[data-mode=out] #mound,body[data-mode=empty] #m
 button,.big,.mini,.link,.socialStart,.membershipKakaoLink,.footerLinkBtn{font-family:var(--hand)!important}
 .sub,.note,.actTip,.treeTip,.treeTipMsg,.guestbookSub,.tutorialBtnText p,.tutorialSection>p{font-family:var(--read);letter-spacing:0}
 .actTip,.treeTip,.treeTipMsg{padding:5px 9px;border:0;border-radius:6px;background:#fff;font-size:13.5px;font-weight:400;line-height:1.4;letter-spacing:0;white-space:pre-line;word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty;box-shadow:none}
-.treeTip{font-family:var(--hand);letter-spacing:-.03em}
 #siteFooter .footerLinkBtn{font-family:var(--read)!important}
+.mini.danger{background:#fff;color:#b91c1c;border-color:#c62828;box-shadow:none}
+.mini.danger:hover,.mini.danger:focus-visible{background:#fff5f5;color:#991b1b;border-color:#991b1b;box-shadow:none}
 

@@ -388,14 +388,8 @@ test('관리자 데이터 정리: 회원 정리(단독/공유/고아/본인방�
   assert.equal(await backend.getTree('1-2'), null);
   assert.equal((await backend.getUser('keep_user')).treeId, null);
 
-  // 5) 시드 데이터 일괄 정리 (일반 회원은 보존)
-  await backend.setUser('seed-u1', { nick: '시드1', email: 'seed1@example.com', treeId: 'virtual-seed-t1', seed: true });
-  await backend.createTree('virtual-seed-t1', { id: 'virtual-seed-t1', f: 0, n: 999, ownerUid: 'seed-u1', members: ['seed-u1'], chars: [], seed: true });
-  const seedRes = await backend.adminCleanupSeed();
-  assert.equal(seedRes.users, 1);
-  assert.equal(seedRes.trees, 1);
-  assert.equal(await backend.getUser('seed-u1'), null);
-  assert.equal(await backend.getTree('virtual-seed-t1'), null);
+  // 5) 시드 일괄 정리 제거 및 일반 회원 보존 확인
+  assert.equal(typeof backend.adminCleanupSeed, 'undefined');
   const remainingUsers = await backend.adminListUsers();
   assert.ok(remainingUsers.some((u) => u.uid === admin.uid));
   assert.ok(remainingUsers.some((u) => u.uid === 'keep_user'));
@@ -412,26 +406,39 @@ test('관리자 데이터 정리: 회원 정리(단독/공유/고아/본인방�
   assert.match(appJs, /openAdminCleanup/);
   assert.match(appJs, /계정·나무 정리/);
   assert.doesNotMatch(appJs, /테스트 계정·나무 정리/);
+  assert.doesNotMatch(appJs, /시드 · 테스트 데이터 한 번에 정리/);
+  assert.doesNotMatch(appJs, /adminCleanupSeed/);
+  assert.doesNotMatch(appJs, /시드 데이터를 한 번에 정리할 수 있어요/);
+  assert.doesNotMatch(appJs, /오른쪽 위 물음표\(\?\) 버튼 왼쪽의 왕관 모양 관리자 버튼을 눌렀을 때 보이는 안내예요\./);
+  assert.doesNotMatch(appJs, /4\. 우리 이야기\(일기\) 지우기와 답장 미리 보기/);
+  assert.match(appJs, /4\. 계정·나무 정리하기/);
   assert.match(css, /#help,#mapHelp,#adminBtn,#mapAdminBtn/);
   assert.match(css, /\.adminCleanupSheet/);
+  assert.match(css, /\.danger[^{]*\{[^}]*#c62828/);
+  assert.match(css, /\.mini\.danger\{[^}]*#c62828/);
+  assert.match(appJs, /leave\.classList\.add\('danger'\)/);
+  assert.match(appJs, /txt\('button','mini danger','빼기'\)/);
   assert.equal(rootRules, backRules);
   assert.match(rootRules, /affectedKeys\(\)\.hasOnly\(\['treeId'\]\)/);
   assert.match(rootRules, /affectedKeys\(\)\.hasOnly\(\['members', 'chars', 'ownerUid', 'lastAct'\]\)/);
 });
 
-test('응원 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 제거, 안내 문구 및 규칙 확인', async () => {
+test('응원 관리: 나무 이야기 내 댓글 열람/작성자 본인 삭제, 중복 버튼 제거, 안내 문구 및 규칙 확인', async () => {
   const { context } = createFrontendSandbox();
   const backend = context.DemoBackend();
   await backend.createTree('2-1', { id: '2-1', f: 2, n: 1, ownerUid: 'owner_1', members: ['owner_1', 'fam_2'], chars: [], hearts: 0 });
-  await backend.addMessage('2-1', { text: '반가워요 이웃님', fromName: '이웃', uid: 'visitor_1', ts: Date.now() });
+  await backend.addMessage('2-1', { text: '반가워요 이웃님', fromName: '이웃1', uid: 'visitor_1', ts: Date.now() });
+  await backend.addMessage('2-1', { text: '다른 이웃 글', fromName: '이웃2', uid: 'visitor_2', ts: Date.now() + 1 });
 
   let list = await backend.listMessages('2-1');
-  assert.equal(list.length, 1);
-  assert.equal(list[0].text, '반가워요 이웃님');
+  assert.equal(list.length, 2);
 
-  await backend.deleteMessage('2-1', list[0].id);
+  // 작성자(visitor_1) 본인 글만 삭제되는지 확인
+  const mine = list.find((m) => m.uid === 'visitor_1');
+  await backend.deleteMessage('2-1', mine.id);
   list = await backend.listMessages('2-1');
-  assert.equal(list.length, 0);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].uid, 'visitor_2');
 
   const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
   const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
@@ -442,12 +449,16 @@ test('응원 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 �
   assert.match(appJs, /field\('응원 남기기'/);
   assert.match(appJs, /이웃이 남긴 응원/);
   assert.match(appJs, /openCheerDeleteConfirm/);
+  assert.match(appJs, /m\.uid===me\.uid/);
   assert.doesNotMatch(appJs, /방명록/);
   assert.match(appJs, /이웃 나무·내 나무 응원 지우기/);
   assert.match(appJs, /var spot=F\[\+d\.dataset\.f\]\[0\]\+' '\+d\.dataset\.n\+'번'/);
   assert.match(appJs, /addSheetTitleTip\('다른 사람들에게 보여요\.'\)/);
   assert.match(css, /\.guestbookSection/);
-  assert.match(rules, /match \/messages\/\{messageId\}[\s\S]*allow delete:[\s\S]*member\(id\)/);
+  assert.match(css, /\.treeTip\{[^}]*font-family:var\(--read\)/);
+  assert.doesNotMatch(css, /\.treeTip\{[^}]*font-family:var\(--hand\)/);
+  assert.doesNotMatch(appJs, /txt\('button','del danger'/);
+  assert.match(rules, /match \/messages\/\{messageId\}[\s\S]*allow delete:[\s\S]*resource\.data\.uid == uid\(\)[\s\S]*member\(id\)/);
 
   // 사용 방법 버튼 그림 삽입 및 최신 문구, 매뉴얼 동기화 확인
   assert.match(appJs, /tutorialBtnGrid/);
@@ -464,9 +475,12 @@ test('응원 관리: 나무 이야기 내 댓글 열람/삭제, 중복 버튼 �
   const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
   assert.match(userGuide, /간단한 사용 방법/);
   assert.match(userGuide, /응원/);
+  assert.match(userGuide, /내가 남긴 응원은 글 오른쪽의 `지우기` 버튼으로 직접 삭제/);
   assert.match(adminGuide, /왕관 모양\(`관리자`\) 버튼/);
   assert.match(adminGuide, /계정과 나무 기록 정리하기 \(`계정·나무 정리`\)/);
+  assert.doesNotMatch(adminGuide, /시드 데이터 한 번에 정리하기/);
   assert.match(adminGuide, /응원 지우기/);
   assert.match(adminGuide, /yangdk02@gmail\.com/);
 });
+
 

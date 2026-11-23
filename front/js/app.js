@@ -964,14 +964,14 @@ function openAdminTreeCode(f,n){
 function openMapTree(f,n){ if(me&&me.email==='yangdk02@gmail.com') openAdminTreeCode(f,n); else goTree(f,n); }
 
 /* ---------- 시트 ---------- */
-var sheet=$('sheet'), cheerBox=null, lastFocusEl=null;
+var sheet=$('sheet'), cheerBox=null, cheerBackFn=null, lastFocusEl=null;
 function resetToastHost(){ var t=$('toast'); if(t&&t.parentNode!==document.body) document.body.appendChild(t); }
 function openSheet(title,sub){
   clearTimeout(authPopupTimer); tutorialAfterClose=null; resetToastHost();
   if(!sheet.open&&document.activeElement&&document.activeElement!==document.body&&!sheet.contains(document.activeElement)){
     lastFocusEl=document.activeElement;
   }
-  cheerBox=null; document.body.classList.remove('authOpen'); sheet.className=''; sheet.innerHTML='';
+  cheerBox=null; cheerBackFn=null; document.body.classList.remove('authOpen'); sheet.className=''; sheet.innerHTML='';
   var x=el('button','x','×'); x.type='button'; x.setAttribute('aria-label','닫기'); x.onclick=function(){ sheet.close(); }; sheet.appendChild(x);
   var titleRow=el('div','sheetTitleRow'), heading=txt('h2','',title); heading.id='sheetTitle'; titleRow.appendChild(heading); sheet.appendChild(titleRow);
   sheet.setAttribute('aria-labelledby','sheetTitle');
@@ -1556,6 +1556,7 @@ function openCheerDeleteConfirm(m,backFn){
   a.append(cancelBtn,delBtn);
 }
 function renderCheerList(backFn){
+  if(typeof backFn==='function') cheerBackFn=backFn;
   if(!cheerBox) return; cheerBox.innerHTML='';
   if(!msgs.length){ cheerBox.appendChild(txt('p','guestbookEmpty',isMine()?'아직 남겨진 응원이 없어요.':'아직 남겨진 응원이 없어요. 첫 응원을 남겨 보세요.')); return; }
   msgs.forEach(function(m){
@@ -1564,10 +1565,10 @@ function renderCheerList(backFn){
     if(m.ts) row.appendChild(txt('small','cheerTime',formatKstDateTime(m.ts).slice(0,16)));
     if(bad){ var s=txt('span','masked',Array(Math.min(m.text.length,18)+1).join('귤')); s.setAttribute('aria-hidden','true'); row.appendChild(s); row.appendChild(txt('small','','부적절한 표현이 있어 가려졌어요.')); }
     else row.appendChild(txt('span','',m.text));
-    if(me&&(isMine()||m.uid===me.uid||T.ownerUid===me.uid||isAdmin())){
+    if(me&&(isMine()||m.uid===me.uid||(T&&T.ownerUid===me.uid)||isAdmin())){
       var d=txt('button','del','지우기');
       d.type='button';
-      d.onclick=function(){ openCheerDeleteConfirm(m,backFn); };
+      d.onclick=function(){ openCheerDeleteConfirm(m,cheerBackFn||backFn); };
       row.appendChild(d);
     }
     cheerBox.appendChild(row);
@@ -1588,7 +1589,7 @@ function openFamily(){
     row.append(pv,info);
     var ctrl=el('div','ctrl');
     if(you){ var leave=txt('button','mini','나무와 헤어지기'); leave.onclick=openLeaveTree; ctrl.appendChild(leave); }
-    else if(owner&&i>0){ ctrl.appendChild(txt('button','mini','빼기')); ctrl.lastChild.onclick=function(){ removeChar(c); }; }
+    else if(owner&&i>0){ ctrl.appendChild(txt('button','mini danger','빼기')); ctrl.lastChild.onclick=function(){ removeChar(c); }; }
     row.appendChild(ctrl); sheet.appendChild(row);
   });
   if(owner&&chars.length<CONFIG.maxCharacters){
@@ -1609,7 +1610,7 @@ function openLeaveTree(){
   var leave=bigBtn(onlyMember?'모든 기록을 삭제하고 헤어지기':'나무와 헤어지기',function(){
     leave.disabled=true; leave.textContent='헤어지는 중';
     B.detachTree(treeId,me.uid).then(function(){ invalidateTreesCache(); return setMyTree(null); }).then(function(){ if(onlyMember){ meDoc.invites={}; return B.setUser(me.uid,{invites:{}}); } }).then(function(){ stopBeat(); clearWatch(); curKey=null; sheet.close(); location.hash='home'; route(); toast(treeName+'와의 연결을 정리했어요.'); setTimeout(openTreeChoice,120); }).catch(function(){ leave.disabled=false; leave.textContent=onlyMember?'모든 기록을 삭제하고 헤어지기':'나무와 헤어지기'; note.textContent='연결을 정리하지 못했어요. 잠시 뒤 다시 시도해 주세요.'; });
-  }); a.appendChild(leave);
+  }); leave.classList.add('danger'); a.appendChild(leave);
 }
 function copyInvite(cd){
   if(navigator.clipboard) navigator.clipboard.writeText(cd).then(function(){ toast('초대 코드를 복사했어요.'); }).catch(function(){ toast('초대 코드: '+cd); });
@@ -1691,7 +1692,7 @@ function requestCharacterCustom(){
 }
 function openAdminGuide(){
   if(!isAdmin()) return;
-  openSheet('관리자 안내','오른쪽 위 물음표(?) 버튼 왼쪽의 왕관 모양 관리자 버튼을 눌렀을 때 보이는 안내예요. 아래 순서대로 천천히 눌러 보시면 됩니다.');
+  openSheet('관리자 안내','아래 순서대로 천천히 눌러 보시면 됩니다.');
   sheet.classList.add('adminGuideSheet');
   var list=el('div','adminGuideList'), steps=[
     {
@@ -1707,12 +1708,8 @@ function openAdminGuide(){
       body:'‘나무 이야기’ 창 아래쪽의 응원(또는 내 나무 화면 아래쪽 하트 숫자)을 누르면 이웃들이 남긴 응원을 볼 수 있어요. 각 글 오른쪽 위의 ‘지우기’를 누른 뒤 확인하면 부적절한 글을 바로 삭제할 수 있습니다.'
     },
     {
-      title:'4. 우리 이야기(일기) 지우기와 답장 미리 보기',
-      body:'‘우리 이야기’ 달력에서 날짜를 누르고 아래쪽 ‘삭제하기’를 누르면 일기를 지울 수 있어요. 관리자가 직접 일기를 저장할 때는 기다림 없이 바로 나무의 답장을 확인할 수 있습니다.'
-    },
-    {
-      title:'5. 계정·나무 정리하기',
-      body:'오른쪽 위 왕관 모양 관리자 버튼을 눌러 ‘계정·나무 정리’를 선택하면 회원·나무·구름 기록을 골라서 지우거나 시드 데이터를 한 번에 정리할 수 있어요. 만약 Google 로그인 목록에서 계정만 먼저 지웠다면 회원 번호(UID)를 직접 입력해 남은 기록도 정리할 수 있습니다.'
+      title:'4. 계정·나무 정리하기',
+      body:'오른쪽 위 왕관 모양 관리자 버튼을 눌러 ‘계정·나무 정리’를 선택하면 회원·나무·구름 기록을 골라서 지울 수 있어요. 만약 Google 로그인 목록에서 계정만 먼저 지웠다면 회원 번호(UID)를 직접 입력해 남은 기록도 정리할 수 있습니다.'
     }
   ];
   steps.forEach(function(st){
@@ -1757,15 +1754,6 @@ function openAdminCleanup(tab,query){
   );
   sheet.appendChild(notice);
 
-  var seedBar=el('section','adminCleanupSeedBar');
-  var seedInfo=el('div','adminCleanupSeedInfo');
-  seedInfo.append(txt('strong','','시드 · 테스트 데이터 한 번에 정리'),txt('p','','시드 데이터를 확인하는 중이에요...'));
-  var seedBtn=bigBtn('시드 데이터 정리',function(){});
-  seedBtn.type='button';
-  seedBtn.disabled=true;
-  seedBar.append(seedInfo,seedBtn);
-  sheet.appendChild(seedBar);
-
   var tabs=el('div','adminCleanupTabs');
   var usersTabBtn=ghostBtn('회원 목록',function(){ openAdminCleanup('users',searchInput.value); });
   var treesTabBtn=ghostBtn('나무 목록',function(){ openAdminCleanup('trees',searchInput.value); });
@@ -1809,7 +1797,7 @@ function openAdminCleanup(tab,query){
   var backActs=actions();
   backActs.appendChild(ghostBtn('관리자 메뉴로 돌아가기',openAdminMenu));
 
-  var loaded={users:[],trees:[],seedCounts:{users:0,trees:0}};
+  var loaded={users:[],trees:[]};
 
   function openConfirmCleanup(cfg){
     openSheet(cfg.title,cfg.desc);
@@ -1905,27 +1893,6 @@ function openAdminCleanup(tab,query){
     });
   }
 
-  function confirmSeedCleanup(){
-    openConfirmCleanup({
-      title:'시드 · 테스트 데이터를 한 번에 정리할까요?',
-      desc:'시드 표식(seed) 또는 테스트 접두사(seed-, virtual-seed-)가 붙은 회원·나무·구름을 모두 정리합니다.',
-      details:[
-        '예상 정리 대상: 시드 회원 '+loaded.seedCounts.users+'명 · 시드 나무 '+loaded.seedCounts.trees+'그루 (시드 구름 포함)',
-        '현재 로그인한 관리자 계정은 보호되어 삭제되지 않습니다.'
-      ],
-      confirmLabel:'시드 데이터 모두 정리하기',
-      errTitle:'시드 데이터를 정리하지 못했어요',
-      run:function(){
-        var seedTreeIds=loaded.trees.filter(function(t){ return t.seed||/^virtual-seed-/.test(t.id); }).map(function(t){ return t.id; });
-        return B.adminCleanupSeed().then(function(res){
-          syncAfterAdminCleanup(seedTreeIds);
-          res=res||{};
-          return '시드 정리 완료 (회원 '+(res.users||0)+'명 · 나무 '+(res.trees||0)+'그루 · 구름 '+(res.clouds||0)+'개)';
-        });
-      }
-    });
-  }
-
   function renderList(){
     var q=searchInput.value.trim().toLowerCase();
     var treeMap={};
@@ -1936,8 +1903,6 @@ function openAdminCleanup(tab,query){
       var users=loaded.users.slice().sort(function(a,b){
         var aSelf=me&&a.uid===me.uid?1:0, bSelf=me&&b.uid===me.uid?1:0;
         if(aSelf!==bSelf) return aSelf-bSelf;
-        var aSeed=(a.seed||/^seed-/.test(a.uid))?0:1, bSeed=(b.seed||/^seed-/.test(b.uid))?0:1;
-        if(aSeed!==bSeed) return aSeed-bSeed;
         return String(a.nick||a.email||a.uid).localeCompare(String(b.nick||b.email||b.uid),'ko');
       }).filter(function(u){
         if(!q) return true;
@@ -1957,9 +1922,7 @@ function openAdminCleanup(tab,query){
         var head=el('div','adminCleanupItemHead');
         head.appendChild(txt('strong','adminCleanupName',safe(u.nick,'이름 없는 회원')));
         var isSelf=!!(me&&u.uid===me.uid);
-        var isSeed=!!(u.seed||/^seed-/.test(u.uid));
         if(isSelf) head.appendChild(txt('span','adminCleanupBadge self','내 관리자 계정'));
-        if(isSeed) head.appendChild(txt('span','adminCleanupBadge seed','시드'));
         meta.appendChild(head);
         meta.appendChild(txt('p','adminCleanupSub',u.email||'이메일 정보 없음'));
         meta.appendChild(txt('p','adminCleanupUid','UID: '+u.uid));
@@ -1970,7 +1933,7 @@ function openAdminCleanup(tab,query){
         meta.appendChild(txt('p','adminCleanupSub',treeLine));
 
         var act=el('div','adminCleanupItemAct');
-        var btn=txt('button','mini danger',isSelf?'보호됨':'데이터 정리');
+        var btn=txt('button',isSelf?'mini':'mini danger',isSelf?'보호됨':'데이터 정리');
         btn.type='button';
         btn.disabled=isSelf;
         btn.onclick=function(){ confirmUserCleanup(u,treeMap,loaded.trees); };
@@ -1982,8 +1945,6 @@ function openAdminCleanup(tab,query){
     }
 
     var trees=loaded.trees.slice().sort(function(a,b){
-      var aSeed=(a.seed||/^virtual-seed-/.test(a.id))?0:1, bSeed=(b.seed||/^virtual-seed-/.test(b.id))?0:1;
-      if(aSeed!==bSeed) return aSeed-bSeed;
       return String(a.id||'').localeCompare(String(b.id||''),'ko');
     }).filter(function(t){
       if(!q) return true;
@@ -2000,7 +1961,6 @@ function openAdminCleanup(tab,query){
       var meta=el('div','adminCleanupMeta');
       var head=el('div','adminCleanupItemHead');
       head.appendChild(txt('strong','adminCleanupName',safe(t.name,'이름 없는 나무')));
-      if(t.seed||/^virtual-seed-/.test(t.id)) head.appendChild(txt('span','adminCleanupBadge seed','시드'));
       if(t.virtual||String(t.id||'').indexOf('virtual-')===0) head.appendChild(txt('span','adminCleanupBadge','가상'));
       if(view&&view.id===t.id) head.appendChild(txt('span','adminCleanupBadge self','현재 화면'));
       meta.appendChild(head);
@@ -2034,21 +1994,11 @@ function openAdminCleanup(tab,query){
     loaded.users=res[0]||[];
     loaded.trees=res[1]||[];
     allTrees=loaded.trees;
-    loaded.seedCounts={
-      users:loaded.users.filter(function(u){ return (!me||u.uid!==me.uid)&&(u.seed||/^seed-/.test(u.uid)); }).length,
-      trees:loaded.trees.filter(function(t){ return t&&(t.seed||/^virtual-seed-/.test(t.id)); }).length
-    };
-    seedInfo.querySelector('p').textContent=(loaded.seedCounts.users||loaded.seedCounts.trees)
-      ?('시드 회원 '+loaded.seedCounts.users+'명 · 시드 나무 '+loaded.seedCounts.trees+'그루 발견')
-      :'발견된 시드 회원·나무가 없어요 (구름 정리도 실행 가능)';
-    seedBtn.disabled=false;
-    seedBtn.onclick=confirmSeedCleanup;
     renderList();
   }).catch(function(err){
     if(!sheet.open||!sheet.classList.contains('adminCleanupSheet')) return;
     listBox.innerHTML='';
     listBox.appendChild(txt('p','adminCleanupEmpty','목록을 불러오지 못했어요.'));
-    seedInfo.querySelector('p').textContent='시드 데이터를 확인하지 못했어요.';
     var rep=recordError('관리자 데이터 목록을 불러오지 못했어요',err,'관리자 데이터 정리 목록');
     listNote.textContent='목록 조회 중 오류가 발생했어요.';
     attachTroubleshootBtn(listNote,rep,function(){ openAdminCleanup(activeTab,searchInput.value); });
