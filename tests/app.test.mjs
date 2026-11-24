@@ -195,6 +195,7 @@ test('서버 보안 헤더, 정적 캐시 정책 및 /api/diary-reply 입력 검
     assert.equal(homeRes.headers.get('cross-origin-opener-policy'), 'same-origin-allow-popups');
     assert.ok(homeRes.headers.get('content-security-policy')?.includes("default-src 'self'"));
     assert.ok(homeRes.headers.get('content-security-policy')?.includes('https://www.googletagmanager.com'));
+    assert.ok(homeRes.headers.get('content-security-policy')?.includes('https://analytics.google.com'));
     assert.equal(homeRes.headers.get('x-powered-by'), null);
 
     const fontRes = await fetch(`${base}/fonts/PretendardVariable.woff2`);
@@ -277,6 +278,11 @@ test('분석 동의 관리: 동의 전 이벤트 수집 차단, 동의 후 6종 
   assert.equal(localStorage.getItem('litttlAnalyticsConsent'), 'denied');
   assert.equal(backend.trackEvent('heart_send', { tree_id: '0-2' }), false);
   assert.equal(backend.getAnalyticsEvents().length, 6);
+
+  const backendSrc = fs.readFileSync(path.join(rootDir, 'front', 'js', 'backend.js'), 'utf8');
+  assert.match(backendSrc, /googletagmanager\.com\/gtag\/js\?id=/);
+  assert.match(backendSrc, /send_to:mid/);
+  assert.doesNotMatch(backendSrc, /firebase-analytics\.js/);
 });
 
 test('트러블 슈팅 및 D2Coding 폰트 정적 서빙/스타일 확인', async () => {

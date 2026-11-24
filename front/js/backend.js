@@ -283,8 +283,19 @@ function LiveBackend(){
     }
 
     var ADMIN_EMAIL='yangdk02@gmail.com', purgedCloudIds={}, CONSENT_KEY='litttlAnalyticsConsent';
-    var analyticsMod=null, analyticsInst=null, analyticsLoading=null;
+    var gtagScriptLoaded=false, gtagConfiguredId='';
     function hasAnalyticsConsent(){ try{ return localStorage.getItem(CONSENT_KEY)==='granted'; }catch(e){ return false; } }
+    function getMeasurementId(){
+      return (CONFIG&&CONFIG.firebase&&CONFIG.firebase.measurementId?String(CONFIG.firebase.measurementId):'').trim();
+    }
+    function ensureGtagFn(){
+      if(typeof window==='undefined') return null;
+      window.dataLayer=window.dataLayer||[];
+      if(typeof window.gtag!=='function'){
+        window.gtag=function(){ window.dataLayer.push(arguments); };
+      }
+      return window.gtag;
+    }
     function clearGaCookies(){
       try{
         if(typeof document==='undefined'||!document.cookie) return;
@@ -297,25 +308,30 @@ function LiveBackend(){
       }catch(e){}
     }
     function ensureAnalytics(){
-      if(!hasAnalyticsConsent()||!CONFIG.firebase||!CONFIG.firebase.measurementId) return Promise.resolve(null);
-      if(analyticsInst){
-        try{ analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,true); }catch(e){}
-        return Promise.resolve(analyticsInst);
+      var mid=getMeasurementId();
+      if(!hasAnalyticsConsent()||!mid||typeof window==='undefined'||typeof document==='undefined') return Promise.resolve(null);
+      window['ga-disable-'+mid]=false;
+      var gtag=ensureGtagFn();
+      if(!gtag) return Promise.resolve(null);
+      if(gtagConfiguredId!==mid){
+        gtag('consent','default',{analytics_storage:'granted'});
+        gtag('js',new Date());
+        gtag('config',mid,{send_page_view:true});
+        gtagConfiguredId=mid;
+      } else {
+        gtag('consent','update',{analytics_storage:'granted'});
       }
-      if(analyticsLoading) return analyticsLoading;
-      analyticsLoading=import(base+'firebase-analytics.js').then(function(mod){
-        analyticsMod=mod;
-        return typeof mod.isSupported==='function'?mod.isSupported():true;
-      }).then(function(ok){
-        if(!ok||!hasAnalyticsConsent()) return null;
-        analyticsInst=analyticsMod.getAnalytics(app);
-        analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,true);
-        return analyticsInst;
-      }).catch(function(){ return null; }).then(function(inst){
-        analyticsLoading=null;
-        return inst;
-      });
-      return analyticsLoading;
+      if(!gtagScriptLoaded){
+        gtagScriptLoaded=true;
+        var existing=document.querySelector('script[src*="googletagmanager.com/gtag/js"]');
+        if(!existing){
+          var s=document.createElement('script');
+          s.async=true;
+          s.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(mid);
+          (document.head||document.documentElement).appendChild(s);
+        }
+      }
+      return Promise.resolve(mid);
     }
     function purgeExpiredClouds(cutoff){
       if(!auth.currentUser) return Promise.resolve();
@@ -520,18 +536,21 @@ function LiveBackend(){
       },
       setAnalyticsConsent:function(granted){
         try{ localStorage.setItem(CONSENT_KEY,granted?'granted':'denied'); }catch(e){}
+        var mid=getMeasurementId();
         if(granted) return ensureAnalytics().then(function(){ return true; });
-        if(analyticsMod&&analyticsInst){
-          try{ analyticsMod.setAnalyticsCollectionEnabled(analyticsInst,false); }catch(e){}
+        if(mid&&typeof window!=='undefined') window['ga-disable-'+mid]=true;
+        if(typeof window!=='undefined'&&typeof window.gtag==='function'){
+          try{ window.gtag('consent','update',{analytics_storage:'denied'}); }catch(e){}
         }
         clearGaCookies();
         return Promise.resolve(false);
       },
       trackEvent:function(name,params){
-        if(!hasAnalyticsConsent()||!CONFIG.firebase||!CONFIG.firebase.measurementId) return false;
-        ensureAnalytics().then(function(inst){
-          if(inst&&analyticsMod&&hasAnalyticsConsent()) analyticsMod.logEvent(inst,name,params||{});
-        }).catch(function(){});
+        var mid=getMeasurementId();
+        if(!hasAnalyticsConsent()||!mid) return false;
+        ensureAnalytics();
+        var gtag=ensureGtagFn();
+        if(gtag) gtag('event',name,Object.assign({},params||{},{send_to:mid}));
         return true;
       },
       adminListUsers:function(){
