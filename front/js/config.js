@@ -3,7 +3,7 @@ var CONFIG = {
 
   // 회원 서버(Firebase) 설정. 비워두면 로컬 개발 저장소로 실행됩니다.
   // 파일 맨 위 안내대로 Firebase에서 받은 값을 넣으면 실제 회원가입과 공유가 켜집니다.
-  firebase: { apiKey: "AIzaSyDA5dygbs-8VTtmqHD14E1lEZ5RLAOQNJI", authDomain: "litttl-farm.firebaseapp.com", projectId: "litttl-farm", appId: "1:601887480245:web:fe8b1a73d19ca40c4521fc", firestoreDatabaseId: "ai-studio-litttl-70fd022f-0950-436d-b112-bd924ccec57d", storageBucket: "litttl-farm.firebasestorage.app", messagingSenderId: "601887480245" },
+  firebase: { apiKey: "AIzaSyDA5dygbs-8VTtmqHD14E1lEZ5RLAOQNJI", authDomain: "litttl-farm.firebaseapp.com", projectId: "litttl-farm", appId: "1:601887480245:web:fe8b1a73d19ca40c4521fc", firestoreDatabaseId: "ai-studio-litttl-70fd022f-0950-436d-b112-bd924ccec57d", storageBucket: "litttl-farm.firebasestorage.app", messagingSenderId: "601887480245", measurementId: "G-W1YW38ZSGB" },
 
   // 벼락밭 날씨. MET Norway 실시간 기상 자료를 받아옵니다.
   weather: { place: "벼락밭", endpoint: "/api/weather" },

@@ -292,7 +292,7 @@ app.get('/js/config.js', (_req, res) => {
           firestoreDatabaseId: parsed.firestoreDatabaseId || '',
           storageBucket: parsed.storageBucket || '',
           messagingSenderId: parsed.messagingSenderId || '',
-          measurementId: parsed.measurementId || '',
+          measurementId: parsed.measurementId || process.env.FIREBASE_MEASUREMENT_ID || '',
         };
       }
     } catch {}

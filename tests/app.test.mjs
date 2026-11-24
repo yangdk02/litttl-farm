@@ -204,6 +204,12 @@ test('서버 보안 헤더, 정적 캐시 정책 및 /api/diary-reply 입력 검
     const cfgRes = await fetch(`${base}/js/config.js`);
     assert.equal(cfgRes.status, 200);
     assert.equal(cfgRes.headers.get('cache-control'), 'no-store');
+    const cfgBody = await cfgRes.text();
+    assert.match(cfgBody, /"measurementId":"G-W1YW38ZSGB"/);
+    const appletCfg = JSON.parse(fs.readFileSync(path.join(rootDir, 'firebase-applet-config.json'), 'utf8'));
+    assert.equal(appletCfg.measurementId, 'G-W1YW38ZSGB');
+    const staticCfg = fs.readFileSync(path.join(rootDir, 'front', 'js', 'config.js'), 'utf8');
+    assert.match(staticCfg, /measurementId:\s*"G-W1YW38ZSGB"/);
 
     for (const svgPath of [
       '/assets/litttl-farm-map/02-roads.svg',
