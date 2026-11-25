@@ -59,7 +59,8 @@ var ICON={
   bug:'<svg viewBox="0 0 48 48" fill="#000" stroke="#000" stroke-width="2.8" stroke-linecap="round"><circle cx="11" cy="28" r="7"/><circle cx="21" cy="26" r="7.5"/><circle cx="31" cy="27" r="7"/><circle cx="39" cy="24" r="6"/><path d="M41 19l3-7M36 19l-1-7" fill="none"/><path d="M11 35v5M21 34v6M31 34v6" fill="none"/></svg>',
   cloud:'<svg viewBox="0 0 48 48" '+S34+'><path d="M13 37C5 37 3 28 9 25c-2-8 9-13 14-7 4-6 15-3 15 5 7 2 7 14-2 14z"/></svg>',
   note:'<svg viewBox="0 0 48 48" '+S34+'><path d="M7 9h34v24H22l-9 8v-8H7z"/><path d="M15 18h18M15 25h12"/></svg>',
-  family:'<svg viewBox="0 0 48 48" fill="#000"><path d="M6 44c-1-11-2-18 0-24 3-11 15-11 18 0 2 6 1 13 0 24z"/><circle cx="12" cy="24" r="2.6" fill="#fff"/><circle cx="19" cy="24" r="2.6" fill="#fff"/><path d="M27 44c-1-8-1-12 0-16 2-8 13-8 15 0 1 4 1 8 0 16z" fill="#fff" stroke="#000" stroke-width="3"/><circle cx="32" cy="31" r="1.8"/><circle cx="37" cy="31" r="1.8"/></svg>'
+  family:'<svg viewBox="0 0 48 48" fill="#000"><path d="M6 44c-1-11-2-18 0-24 3-11 15-11 18 0 2 6 1 13 0 24z"/><circle cx="12" cy="24" r="2.6" fill="#fff"/><circle cx="19" cy="24" r="2.6" fill="#fff"/><path d="M27 44c-1-8-1-12 0-16 2-8 13-8 15 0 1 4 1 8 0 16z" fill="#fff" stroke="#000" stroke-width="3"/><circle cx="32" cy="31" r="1.8"/><circle cx="37" cy="31" r="1.8"/></svg>',
+  neighbor:'<svg viewBox="0 0 48 48" '+S34+'><path d="M14 29v12h5V29" fill="#8b613b"/><path d="M6 27c-4-6 1-12 6-10 1-6 9-8 13-3 5 0 8 7 4 12-5 5-17 5-23 1z" fill="#6fb379"/><path d="M30 31v12h5V31" fill="#8b613b"/><path d="M21 29c-4-6 1-12 6-10 1-7 10-9 14-3 6 0 8 8 4 13-6 5-18 5-24 0z" fill="#4b9657"/></svg>'
 };
 var SPRAY='<path d="M10 10L6 3M18 7l1-7M25 13l5-5" stroke="#000" stroke-width="3" stroke-linecap="round" fill="none"/>';
 var CAN='<svg viewBox="0 0 120 90" aria-hidden="true"><g fill="#fff" stroke="#000" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"><path d="M46 28h52l5 54H42z"/><path d="M46 46L14 25"/><path d="M4 19l15-6 3 13-13 6z"/><path d="M100 38c20-3 20 28 2 32" fill="none"/><path d="M58 28c0-22 28-22 29 0" fill="none"/></g></svg>';
@@ -652,6 +653,7 @@ function buildButtons(){
       act('','book','나무 이야기',openVisitorStory,'이 나무의 이야기와 응원을 봐요')
     );
     if(myTreeId()) L.append(mineButton());
+    L.append(act('','neighbor','이웃 나무',function(){ visitRandomNeighborTree({excludeCurrent:true}); },'다른 이웃 나무를 랜덤으로 구경해요'));
   } else {
     L.append(act('','map','벼락밭 지도',function(){ location.hash='map'; },'벼락밭의 귤나무들을 둘러봐요'));
     if(myTreeId()) L.append(mineButton());
@@ -2773,6 +2775,7 @@ function openTutorial(first,onDone){
       title:'지도 · 이웃 나무 · 설정',
       items:[
         {icon:ICON.map, name:'벼락밭 지도', desc:'밭의 숲을 눌러 이웃 나무를 구경하고, 받은 나무 코드를 입력할 수 있어요.'},
+        {icon:ICON.neighbor, name:'이웃 나무', desc:'이웃 나무 화면에서 누르면 또 다른 랜덤한 이웃 나무로 바로 이동해요.'},
         {icon:HEART, name:'하트와 응원', desc:'이웃 나무에서는 하루 한 번 하트를 누르고, ‘나무 이야기’에서 응원을 남길 수 있어요.'},
         {icon:FRUIT, name:'딴 귤 바구니', desc:'내 나무 아래쪽에서 지금까지 딴 귤과 이웃에게 받은 하트 수를 확인해요.'},
         {icon:bellSvg, name:'알림 (오른쪽 위)', desc:'내 나무 댓글, 일기 답장, 전체 공지가 오면 바로 알려줘요.'},
@@ -3168,6 +3171,35 @@ function goTreeRecord(t){
   if(unmapped){ var h=t.id===myTreeId()?'':'treev-'+t.id; if(location.hash.slice(1)===h) route(); else location.hash=h; }
   else goTree(t.f,t.n);
 }
+var randomTreeBusy=false;
+function visitRandomNeighborTree(opts){
+  if(randomTreeBusy) return;
+  opts=opts||{};
+  var noteEl=opts.noteEl||null, excludeCurrent=!!opts.excludeCurrent;
+  randomTreeBusy=true;
+  refreshPins(true).then(function(){
+    var mine=myTreeId(), curId=(excludeCurrent&&view)?view.id:null;
+    var neighbors=allTrees.filter(function(t){ return t&&t.id!==mine&&t.ownerUid; });
+    if(!neighbors.length){
+      if(noteEl) noteEl.textContent='아직 구경할 이웃 나무가 없어요.';
+      toast('아직 구경할 이웃 나무가 없어요.');
+      return;
+    }
+    var pool=curId?neighbors.filter(function(t){ return t.id!==curId; }):neighbors;
+    if(!pool.length){
+      if(noteEl) noteEl.textContent='지금 보고 있는 나무 외에 다른 이웃 나무가 아직 없어요.';
+      toast('지금 보고 있는 나무 외에 다른 이웃 나무가 아직 없어요.');
+      return;
+    }
+    if(noteEl) noteEl.textContent='';
+    goTreeRecord(pool[Math.floor(Math.random()*pool.length)]);
+  }).catch(function(){
+    if(noteEl) noteEl.textContent='이웃 나무 목록을 불러오지 못했어요.';
+    toast('이웃 나무 목록을 불러오지 못했어요.');
+  }).then(function(){
+    randomTreeBusy=false;
+  });
+}
 
 /* ---------- 화면 이동 ---------- */
 var navStack=[], navBack=false;
@@ -3311,21 +3343,7 @@ function boot(backend){
   $('place').onclick=openWeather;
   $('hearts').onclick=openCheer;
   $('overviewBtn').onclick=function(){ location.hash='map'; };
-  $('randomBtn').onclick=function(){
-    refreshPins(true).then(function(){
-      var mine=myTreeId(), pool=allTrees.filter(function(t){ return t&&t.id!==mine&&t.ownerUid; });
-      if(!pool.length){
-        if($('mapNote')) $('mapNote').textContent='아직 구경할 이웃 나무가 없어요.';
-        toast('아직 구경할 이웃 나무가 없어요.');
-        return;
-      }
-      if($('mapNote')) $('mapNote').textContent='';
-      goTreeRecord(pool[Math.floor(Math.random()*pool.length)]);
-    }).catch(function(){
-      if($('mapNote')) $('mapNote').textContent='이웃 나무 목록을 불러오지 못했어요.';
-      toast('이웃 나무 목록을 불러오지 못했어요.');
-    });
-  };
+  $('randomBtn').onclick=function(){ visitRandomNeighborTree({noteEl:$('mapNote'),excludeCurrent:false}); };
   document.querySelectorAll('[data-legal]').forEach(function(a){ a.onclick=function(e){ e.preventDefault(); a.dataset.legal==='terms'?openTerms():openPrivacy(); }; });
   if($('analyticsPrefBtn')) $('analyticsPrefBtn').onclick=openAnalyticsSettings;
   if(getAnalyticsConsent()==='granted'&&B.setAnalyticsConsent) B.setAnalyticsConsent(true).catch(function(){});

@@ -478,9 +478,11 @@ test('응원 관리: 나무 이야기 내 댓글 열람/작성자 본인 삭제,
   // 사용 방법 버튼 그림 삽입 및 최신 문구, 매뉴얼 동기화 확인
   assert.match(appJs, /tutorialBtnGrid/);
   assert.match(appJs, /tutorialBtnIcon/);
-  ['ICON.pick', 'ICON.bug', 'ICON.hug', 'ICON.water', 'ICON.cloud', 'ICON.book', 'ICON.note', 'ICON.family', 'ICON.map'].forEach((tok) => {
+  ['ICON.pick', 'ICON.bug', 'ICON.hug', 'ICON.water', 'ICON.cloud', 'ICON.book', 'ICON.note', 'ICON.family', 'ICON.map', 'ICON.neighbor'].forEach((tok) => {
     assert.ok(appJs.includes(`{icon:${tok}`), `사용 방법에 ${tok} 버튼 그림이 포함되어야 합니다.`);
   });
+  assert.match(appJs, /if\(myTreeId\(\)\) L\.append\(mineButton\(\)\);\s*L\.append\(act\('','neighbor','이웃 나무'/);
+  assert.match(appJs, /function visitRandomNeighborTree\(opts\)/);
   assert.match(appJs, /날짜를 눌러 글을 남겨요\./);
   assert.doesNotMatch(appJs, /날짜를 눌러 그림과 글을 남겨요\./);
   assert.match(css, /\.tutorialBtnGrid/);
@@ -489,6 +491,7 @@ test('응원 관리: 나무 이야기 내 댓글 열람/작성자 본인 삭제,
   const userGuide = fs.readFileSync(path.join(rootDir, 'USER_GUIDE.md'), 'utf8');
   const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
   assert.match(userGuide, /간단한 사용 방법/);
+  assert.match(userGuide, /`내 나무` 아래에 있는 `이웃 나무` 버튼/);
   assert.match(userGuide, /응원/);
   assert.match(userGuide, /내가 남긴 응원은 글 오른쪽의 `지우기` 버튼으로 직접 삭제/);
   assert.match(adminGuide, /왕관 모양\(`관리자`\) 버튼/);
