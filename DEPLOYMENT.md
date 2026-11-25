@@ -1,7 +1,7 @@
 # LITTTL. FARM. 배포 및 롤백 안내
 
 이 문서는 `LITTTL. FARM.`의 웹 화면(Firebase Hosting), 데이터 규칙(Firestore Rules), Node.js 서버(`server.js`)의 배포와 복구 절차를 정리한 기술 문서입니다.
-GitHub에서 코드를 내려받아 처음 실행해 보는 초보자용 단계별 가이드는 [ADMIN_GUIDE.md](./ADMIN_GUIDE.md)의 **2부(개발자가 따로 있는 경우)**를 먼저 확인해 주세요.
+GitHub에서 코드를 내려받아 처음 실행해 보는 초보자용 단계별 가이드는 [ADMIN_GUIDE.md](./ADMIN_GUIDE.md)의 2부(개발자가 따로 있는 경우)를 먼저 확인해 주세요.
 
 ## 구성
 
