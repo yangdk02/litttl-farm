@@ -124,6 +124,49 @@
         "ownerUid": { "type": "string", "maxLength": 128 }
       },
       "required": ["treeId"]
+    },
+    "AdminGrant": {
+      "title": "AdminGrant",
+      "description": "Shared in-app administrator privilege grant approved by an existing admin.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "nick": { "type": "string", "maxLength": 30 },
+        "grantedBy": { "type": "string", "maxLength": 128 },
+        "grantedByEmail": { "type": "string", "format": "email", "maxLength": 120 },
+        "grantedAt": { "type": "integer" }
+      },
+      "required": ["uid", "email", "grantedBy", "grantedAt"]
+    },
+    "AdminRequest": {
+      "title": "AdminRequest",
+      "description": "User request to switch to a shared administrator role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 120 },
+        "nick": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "maxLength": 20 },
+        "requestedAt": { "type": "integer" },
+        "reviewedAt": { "type": "integer" },
+        "reviewedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["uid", "email", "status", "requestedAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Global announcement notice sent by an administrator to all signed-in users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "createdAt": { "type": "integer" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["title", "body", "createdAt", "createdBy"]
     }
   },
   "firestore": {
@@ -158,6 +201,18 @@
     "/invites/{code}": {
       "schema": { "$ref": "#/entities/Invite" },
       "description": "Tree connection and family invite codes."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminGrant" },
+      "description": "Shared in-app administrator grants."
+    },
+    "/adminRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/AdminRequest" },
+      "description": "Requests submitted by users asking to share admin privileges."
+    },
+    "/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Global announcement notices broadcast by administrators."
     }
   }
 }

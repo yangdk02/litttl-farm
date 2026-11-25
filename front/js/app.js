@@ -312,7 +312,7 @@ function openTroubleshoot(report,opts){
   openSheet('오류가 발생했어요','서비스 이용 중 문제가 발생했어요. 아래 오류 내용을 복사해 개발자 메일로 보내 주시면 빠르게 확인해 드릴게요.');
   sheet.classList.add('legalSheet','troubleshootSheet');
   var box=el('section','troubleshootContainer');
-  var head=el('div','troubleshootHead'), copyMini=txt('button','mini','복사하기');
+  var head=el('div','troubleshootHead'), copyMini=txt('button','mini','오류 내용 복사하기');
   copyMini.type='button';
   head.append(txt('strong','','오류 내용 (복사해서 보내 주세요)'),copyMini);
   var area=document.createElement('textarea');
@@ -339,7 +339,6 @@ function openTroubleshoot(report,opts){
   sheet.appendChild(mailCard);
   var a=actions();
   if(opts.onBack) a.appendChild(ghostBtn('← 돌아가기',opts.onBack));
-  a.appendChild(bigBtn('오류 내용 복사하기',function(){ copyTextValue(rep.text,null,'오류 내용을 복사했어요.',area); }));
   a.appendChild(ghostBtn('닫기',function(){ sheet.close(); }));
 }
 function recordError(title,err,context,opts){
@@ -356,7 +355,9 @@ function attachTroubleshootBtn(host,rep,onBack){
   host.appendChild(document.createElement('br'));
   host.appendChild(b);
 }
-function isAdmin(){ return !!(me&&String(me.email||'').trim().toLowerCase()==='yangdk02@gmail.com'); }
+var adminGrantActive=false, pendingNotifAction=null;
+function isAdmin(){ return !!(me&&(String(me.email||'').trim().toLowerCase()==='yangdk02@gmail.com'||adminGrantActive)); }
+function isPrimaryAdmin(){ return !!(me&&String(me.email||'').trim().toLowerCase()==='yangdk02@gmail.com'); }
 function myTreeId(){ return meDoc&&meDoc.treeId||null; }
 function isMine(){ return !!view&&view.id===myTreeId()&&!!T&&!!me&&(T.members||[]).indexOf(me.uid)>=0; }
 function mode(){ if(view) return isMine()?'mine':'visit'; if(landing) return 'links'; return me?'empty':'out'; }
@@ -414,7 +415,7 @@ function openTree(id,f,n){
     if(d&&old&&isMine()) Object.keys(unsaved).forEach(function(k){ d[k]=old[k]; });
     T=d;
     if(d&&isMine()){ meDoc.treeCache={f:d.f,n:d.n,name:d.name}; var ch=catchUp(); if(ch.length) persist(ch); }
-    if(first){ first=false; renderAll(); setTimeout(reseedSky,0); if(openStoryAfterEnter&&d&&isMine()){ openStoryAfterEnter=false; setTimeout(openEdit,80); } return; }
+    if(first){ first=false; renderAll(); setTimeout(reseedSky,0); if(openStoryAfterEnter&&d&&isMine()){ openStoryAfterEnter=false; setTimeout(openEdit,80); } if(pendingNotifAction&&d&&isMine()){ var fn=pendingNotifAction; pendingNotifAction=null; setTimeout(fn,60); } return; }
     if(!d){ renderAll(); return; }
     if(d.lastAct&&(!old||!old.lastAct||old.lastAct.at!==d.lastAct.at)&&(!me||d.lastAct.uid!==me.uid)) showFamilyAct(d.lastAct);
     if(!old) whenFree(renderAll); else whenFree(softUpdate);
@@ -564,12 +565,24 @@ function hud(){
   }
   var seen=0; try{ seen=+localStorage.getItem('littlSeen')||0; }catch(e){}
   if(m==='mine'&&msgs.some(function(x){ return x.ts>seen&&(!me||x.uid!==me.uid); })) h.appendChild(el('u'));
-  var adminOn=isAdmin();
+  var adminOn=isAdmin(), unreadNotif=unreadNotifCount();
   $('login').hidden=!authResolved||!!me; $('menu').hidden=!me;
   if($('adminBtn')) $('adminBtn').hidden=!adminOn;
+  if($('notifBtn')){
+    $('notifBtn').hidden=!me;
+    var nu=$('notifBtn').querySelector('u');
+    if(nu){ nu.hidden=!unreadNotif; nu.textContent=unreadNotif>9?'9+':(unreadNotif?String(unreadNotif):''); }
+    $('notifBtn').setAttribute('aria-label',unreadNotif?'알림 '+unreadNotif+'개':'알림');
+  }
   if($('mapLogin')) $('mapLogin').hidden=!authResolved||!!me;
   if($('mapMenu')) $('mapMenu').hidden=!me;
   if($('mapAdminBtn')) $('mapAdminBtn').hidden=!adminOn;
+  if($('mapNotifBtn')){
+    $('mapNotifBtn').hidden=!me;
+    var mnu=$('mapNotifBtn').querySelector('u');
+    if(mnu){ mnu.hidden=!unreadNotif; mnu.textContent=unreadNotif>9?'9+':(unreadNotif?String(unreadNotif):''); }
+    $('mapNotifBtn').setAttribute('aria-label',unreadNotif?'알림 '+unreadNotif+'개':'알림');
+  }
   $('visitBar').hidden=m!=='visit'||!!T; $('emptyBar').hidden=!authResolved||(m!=='empty'&&m!=='out'&&!(treeLoadError&&view&&!T));
   if(m==='visit'&&!T) visitBar();
   if(treeLoadError&&view&&!T) treeErrorBar();
@@ -748,7 +761,7 @@ function adopt(){
     curKey=null; location.hash=''; route(); setTimeout(openEdit,250);
   }).catch(function(){ toast('이미 연결된 나무예요. 다른 나무를 골라주세요.'); });
 }
-function setMyTree(id){ meDoc.treeId=id||null; if(!id) delete meDoc.treeCache; return B.setUser(me.uid,{treeId:id||null}); }
+function setMyTree(id){ meDoc.treeId=id||null; if(!id) delete meDoc.treeCache; syncMyTreeNotifWatchers(); return B.setUser(me.uid,{treeId:id||null}); }
 function normalizeTreeName(v){ return String(v||'').trim().toLowerCase(); }
 function createVirtualTree(){
   if(!me||myTreeId()) return;
@@ -961,7 +974,7 @@ function openAdminTreeCode(f,n){
   copy.onclick=function(){ copy.disabled=true; B.createInvite(value,{kind:'physical',treeId:id,f:f,n:n,createdBy:me.uid}).then(function(){ copyInvite(value); copy.textContent='복사됨'; }).catch(function(err){ copy.disabled=false; var rep=recordError('나무 코드를 만들지 못했어요',err,'관리자 나무 코드 발급'); openTroubleshoot(rep,{onBack:function(){ openAdminTreeCode(f,n); }}); }); };
   box.append(out,copy); sheet.appendChild(box);
 }
-function openMapTree(f,n){ if(me&&me.email==='yangdk02@gmail.com') openAdminTreeCode(f,n); else goTree(f,n); }
+function openMapTree(f,n){ if(isAdmin()) openAdminTreeCode(f,n); else goTree(f,n); }
 
 /* ---------- 시트 ---------- */
 var sheet=$('sheet'), cheerBox=null, cheerBackFn=null, lastFocusEl=null;
@@ -1690,6 +1703,573 @@ function requestCharacterCustom(){
     openChar(mine,tree);
   }).catch(function(){ toast('내 캐릭터를 불러오지 못했어요.'); });
 }
+var myTreeNotifId=null, myTreeMsgs=[], myTreeDiaries=[], myAdminRequest=null, adminRequests=[], globalNotices=[];
+var notifList=[], notifReadMap={}, notifReadHadSaved=false, notifAlertShown={}, notifAlertTimer=null, notifTickTimer=null;
+var authNotifUnsubs=[], myTreeNotifUnsubs=[], adminNotifUnsubs=[];
+var settingsTapCount=0, settingsTapLastAt=0, settingsTapResetTimer=null;
+
+function notifReadKey(){ return me?'litttlNotifRead_'+me.uid:''; }
+function loadNotifReadState(){
+  notifReadMap={}; notifReadHadSaved=false;
+  var k=notifReadKey(); if(!k) return;
+  try{
+    var raw=localStorage.getItem(k);
+    if(raw!=null){
+      notifReadHadSaved=true;
+      var parsed=JSON.parse(raw);
+      if(parsed&&typeof parsed==='object') notifReadMap=parsed;
+    }
+  }catch(e){}
+}
+function saveNotifReadState(){
+  var k=notifReadKey(); if(!k) return;
+  try{
+    var keys=Object.keys(notifReadMap);
+    if(keys.length>300){
+      keys.sort(function(a,b){ return (notifReadMap[b]||0)-(notifReadMap[a]||0); }).slice(300).forEach(function(oldK){ delete notifReadMap[oldK]; });
+    }
+    localStorage.setItem(k,JSON.stringify(notifReadMap));
+  }catch(e){}
+}
+function unreadNotifCount(){
+  if(!me) return 0;
+  var n=0;
+  for(var i=0;i<notifList.length;i++){ if(!notifReadMap[notifList[i].id]) n++; }
+  return n;
+}
+function hideNotifAlert(){
+  clearTimeout(notifAlertTimer); notifAlertTimer=null;
+  var box=$('notifAlert');
+  if(box){ box.hidden=true; box.innerHTML=''; }
+}
+function markNotifRead(id,skipRebuild){
+  if(!me||!id) return;
+  notifReadMap[id]=Date.now();
+  notifReadHadSaved=true;
+  saveNotifReadState();
+  if(!skipRebuild) rebuildNotifications(true);
+}
+function markAllNotifsRead(){
+  if(!me) return;
+  var now=Date.now();
+  notifList.forEach(function(it){ notifReadMap[it.id]=now; });
+  notifReadHadSaved=true;
+  saveNotifReadState();
+  hideNotifAlert();
+  rebuildNotifications(true);
+}
+function openMyDiaryDate(day){
+  var treeId=myTreeId();
+  if(!me||!treeId||!day) return;
+  var go=function(){
+    var d=new Date(day+'T00:00:00');
+    diaryMonth=new Date(d.getFullYear(),d.getMonth(),1);
+    openDiaryEntry(day,false,me.uid);
+  };
+  if(diaryCache[day]&&diaryCache[day].entries&&diaryCache[day].entries[me.uid]){ go(); return; }
+  B.listDiary(treeId).then(function(rows){
+    diaryCache={};
+    (rows||[]).forEach(function(r){
+      var dKey=(r.date||'').split('__')[0], author=r.uid||'legacy'; if(!dKey) return;
+      diaryBucket(dKey).entries[author]={docId:r.docId||(dKey+'__'+author),date:dKey,icon:diaryIconKey(r.icon),text:r.text,createdAt:r.createdAt||0,replyReadyAt:r.replyReadyAt!=null?r.replyReadyAt:null,replyGenerated:!!r.replyGenerated,comment:r.comment||'',uid:author,authorName:r.authorName||diaryAuthorName(author)};
+    });
+    go();
+  }).catch(function(){ openDiary(null,false); });
+}
+function openNoticeDetail(item){
+  if(!item) return;
+  markNotifRead(item.id,true);
+  hideNotifAlert();
+  openSheet(item.title||'공지사항',(item.createdByName||'엉클리틀')+(item.ts?' · '+formatKstDateTime(item.ts).slice(0,16):''));
+  sheet.classList.add('notifSheet');
+  var box=el('div','noticeDetailBox');
+  box.appendChild(txt('p','noticeDetailBody',item.fullBody||item.body||''));
+  sheet.appendChild(box);
+  var a=actions();
+  a.append(ghostBtn('← 알림으로',function(){ openNotifications(); }),bigBtn('닫기',function(){ sheet.close(); }));
+}
+function openNotifTarget(item){
+  if(!item) return;
+  markNotifRead(item.id);
+  hideNotifAlert();
+  if(item.kind==='notice'){ openNoticeDetail(item); return; }
+  if(item.kind==='admin_request'){ openNotifications(); return; }
+  if(item.kind==='admin_result'){
+    if(isAdmin()) openAdminMenu();
+    else openNotifications();
+    return;
+  }
+  var myId=myTreeId();
+  if(!myId){ openNotifications(); return; }
+  var runOnMyTree=function(){
+    if(item.kind==='cheer') openCheer();
+    else if(item.kind==='diary_reply'&&item.dateKey) openMyDiaryDate(item.dateKey);
+  };
+  if(isMine()&&document.body.dataset.page==='scene'){
+    if(sheet.open) sheet.close();
+    runOnMyTree();
+    return;
+  }
+  pendingNotifAction=runOnMyTree;
+  if(sheet.open) sheet.close();
+  if(location.hash&&location.hash!=='#') location.hash='';
+  else route();
+}
+function showNotifAlert(item){
+  var box=$('notifAlert'); if(!box||!item) return;
+  clearTimeout(notifAlertTimer);
+  box.innerHTML='';
+  var head=el('div','notifAlertHead');
+  var badge=txt('span','notifAlertBadge'+(item.kind==='admin_request'?' admin':(item.kind==='notice'?' notice':'')),item.tag||'알림');
+  var close=txt('button','notifAlertClose','×');
+  close.type='button'; close.setAttribute('aria-label','알림 닫기');
+  close.onclick=function(){ hideNotifAlert(); };
+  head.append(badge,close);
+  var title=txt('p','notifAlertTitle',item.title||'새 알림');
+  var body=txt('p','notifAlertBody',item.body||'');
+  var acts=el('div','notifAlertActs');
+  var go=txt('button','mini',item.kind==='admin_request'?'알림에서 확인':(item.kind==='notice'?'자세히 보기':'바로 보기'));
+  go.type='button';
+  go.onclick=function(){ openNotifTarget(item); };
+  acts.appendChild(go);
+  box.append(head,title,body,acts);
+  box.hidden=false;
+  notifAlertTimer=setTimeout(hideNotifAlert,9000);
+}
+function previewNotifText(text,max){
+  var s=String(text||'').replace(/\s+/g,' ').trim(), chars=Array.from(s), limit=max||46;
+  return chars.length>limit?chars.slice(0,limit).join('')+'...':s;
+}
+function rebuildNotifications(suppressAlert){
+  if(!me){ notifList=[]; hideNotifAlert(); return; }
+  var items=[], myId=myTreeId(), now=Date.now(), seenCheerTs=0;
+  try{ seenCheerTs=+localStorage.getItem('littlSeen')||0; }catch(e){}
+  var seedTexts=isAdmin()?[]:Object.keys(diaryExamples()).map(function(k){ return diaryExamples()[k].text; });
+  var dirtyMap=false;
+
+  if(myId){
+    (myTreeMsgs||[]).forEach(function(m){
+      if(!m||(me&&m.uid===me.uid)) return;
+      var nid='msg:'+myId+':'+(m.id||m.ts||'');
+      var ts=Number(m.ts||0);
+      if(!notifReadHadSaved&&ts>0&&ts<=seenCheerTs&&!notifReadMap[nid]){
+        notifReadMap[nid]=seenCheerTs; dirtyMap=true;
+      }
+      var preview=Filter.bad(m.text)?'부적절한 표현이 포함된 글이에요.':previewNotifText(m.text,42);
+      items.push({
+        id:nid, kind:'cheer', tag:'새 댓글',
+        title:'내 나무에 새 댓글이 달렸어요',
+        body:safe(m.fromName,'이웃')+': '+preview,
+        ts:ts, treeId:myId
+      });
+    });
+
+    (myTreeDiaries||[]).forEach(function(r){
+      if(!r) return;
+      if(r.uid&&me&&r.uid!==me.uid) return;
+      if(!isAdmin()&&seedTexts.indexOf(r.text)>=0) return;
+      var day=(r.date||r.docId||'').split('__')[0]; if(!day) return;
+      var info=treeReplyInfo(day,r);
+      if(!info.text||info.waiting) return;
+      var dObj=new Date(day+'T00:00:00');
+      var dayLabel=(dObj.getMonth()+1)+'월 '+dObj.getDate()+'일 일기';
+      var replyTs=Number(r.replyReadyAt||r.createdAt||dObj.getTime()||0);
+      var nid='diary:'+myId+':'+(r.docId||(day+'__'+(r.uid||me.uid)));
+      if(!notifReadHadSaved&&replyTs>0&&(now-replyTs)>48*60*60*1000&&!notifReadMap[nid]){
+        notifReadMap[nid]=now; dirtyMap=true;
+      }
+      items.push({
+        id:nid, kind:'diary_reply', tag:'나무 답장',
+        title:'내 일기에 나무의 답장이 달렸어요',
+        body:dayLabel+' · '+previewNotifText(info.text,42),
+        ts:replyTs, dateKey:day, treeId:myId
+      });
+    });
+  }
+
+  if(isAdmin()){
+    (adminRequests||[]).forEach(function(req){
+      if(!req||req.status!=='pending') return;
+      var nid='adminreq:'+req.uid+':'+(req.requestedAt||0);
+      items.push({
+        id:nid, kind:'admin_request', tag:'관리자 요청',
+        title:'관리자 권한 요청이 왔어요',
+        body:safe(req.nick,'회원')+' ('+(req.email||'이메일 없음')+')님이 관리자 계정 전환을 요청했어요.',
+        ts:Number(req.requestedAt||0), req:req
+      });
+    });
+  }
+
+  if(myAdminRequest&&myAdminRequest.status==='approved'&&isAdmin()&&!isPrimaryAdmin()){
+    var aid='adminres:approved:'+(myAdminRequest.reviewedAt||myAdminRequest.requestedAt||0);
+    items.push({
+      id:aid, kind:'admin_result', tag:'관리자',
+      title:'관리자 권한이 부여되었어요',
+      body:'이제 기존 관리자와 함께 앱 내 관리자 기능을 사용할 수 있어요.',
+      ts:Number(myAdminRequest.reviewedAt||myAdminRequest.requestedAt||now)
+    });
+  } else if(myAdminRequest&&myAdminRequest.status==='rejected'&&!isAdmin()){
+    var rid='adminres:rejected:'+(myAdminRequest.reviewedAt||myAdminRequest.requestedAt||0);
+    items.push({
+      id:rid, kind:'admin_result', tag:'안내',
+      title:'관리자 권한 요청이 거절되었어요',
+      body:'기존 관리자가 권한 요청을 거절했어요.',
+      ts:Number(myAdminRequest.reviewedAt||myAdminRequest.requestedAt||now)
+    });
+  }
+
+  (globalNotices||[]).forEach(function(n){
+    if(!n||!n.id) return;
+    var nid='notice:'+n.id;
+    items.push({
+      id:nid, kind:'notice', tag:'공지',
+      title:n.title||'공지사항',
+      body:previewNotifText(n.body||'',42),
+      fullBody:n.body||'',
+      createdByName:n.createdByName||'엉클리틀',
+      ts:Number(n.createdAt||0)
+    });
+  });
+
+  if(dirtyMap){ notifReadHadSaved=true; saveNotifReadState(); }
+  items.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+  notifList=items;
+  hud();
+
+  if(sheet.open&&sheet.classList.contains('notifSheet')) renderNotificationSheetContent();
+
+  if(!suppressAlert){
+    var unreadTop=items.filter(function(it){ return !notifReadMap[it.id]&&!notifAlertShown[it.id]; })[0];
+    if(unreadTop){
+      notifAlertShown[unreadTop.id]=1;
+      showNotifAlert(unreadTop);
+    }
+  }
+}
+function clearMyTreeNotifWatchers(){
+  myTreeNotifUnsubs.forEach(function(u){ try{ u(); }catch(e){} });
+  myTreeNotifUnsubs=[]; myTreeNotifId=null; myTreeMsgs=[]; myTreeDiaries=[];
+}
+function clearAdminNotifWatchers(){
+  adminNotifUnsubs.forEach(function(u){ try{ u(); }catch(e){} });
+  adminNotifUnsubs=[]; adminRequests=[];
+}
+function syncAdminNotifWatchers(){
+  clearAdminNotifWatchers();
+  if(!me||!isAdmin()||!B||typeof B.watchAdminRequests!=='function') return;
+  adminNotifUnsubs.push(B.watchAdminRequests(function(list){
+    adminRequests=list||[];
+    rebuildNotifications(false);
+  }));
+}
+function syncMyTreeNotifWatchers(){
+  var nextId=me?myTreeId():null;
+  if(nextId===myTreeNotifId) return;
+  clearMyTreeNotifWatchers();
+  myTreeNotifId=nextId;
+  if(!me||!nextId||!B){ rebuildNotifications(true); return; }
+  myTreeNotifUnsubs.push(B.watchMessages(nextId,function(list){
+    myTreeMsgs=list||[];
+    rebuildNotifications(false);
+  }));
+  if(typeof B.watchDiary==='function'){
+    myTreeNotifUnsubs.push(B.watchDiary(nextId,function(list){
+      myTreeDiaries=list||[];
+      rebuildNotifications(false);
+    }));
+  }
+}
+function clearNotifWatchers(){
+  clearInterval(notifTickTimer); notifTickTimer=null;
+  authNotifUnsubs.forEach(function(u){ try{ u(); }catch(e){} });
+  authNotifUnsubs=[];
+  clearMyTreeNotifWatchers();
+  clearAdminNotifWatchers();
+  adminGrantActive=false; myAdminRequest=null; globalNotices=[]; notifList=[]; notifReadMap={}; notifAlertShown={};
+  hideNotifAlert();
+}
+function startAuthNotifWatchers(){
+  clearNotifWatchers();
+  if(!me||!B) return;
+  loadNotifReadState();
+  if(typeof B.watchAdminStatus==='function'){
+    authNotifUnsubs.push(B.watchAdminStatus(me.uid,me.email,function(granted){
+      var wasAdmin=isAdmin();
+      adminGrantActive=!!granted&&!isPrimaryAdmin();
+      var nowAdmin=isAdmin();
+      if(nowAdmin!==wasAdmin||!adminNotifUnsubs.length) syncAdminNotifWatchers();
+      rebuildNotifications(false);
+      hud();
+    }));
+  }
+  if(typeof B.watchMyAdminRequest==='function'){
+    authNotifUnsubs.push(B.watchMyAdminRequest(me.uid,function(req){
+      myAdminRequest=req||null;
+      rebuildNotifications(false);
+    }));
+  }
+  if(typeof B.watchNotices==='function'){
+    authNotifUnsubs.push(B.watchNotices(function(list){
+      globalNotices=list||[];
+      rebuildNotifications(false);
+      if(sheet.open&&sheet.classList.contains('adminNoticeSheet')) renderAdminNoticeList();
+    }));
+  }
+  syncAdminNotifWatchers();
+  syncMyTreeNotifWatchers();
+  notifTickTimer=setInterval(function(){ if(me&&!document.hidden) rebuildNotifications(false); },30000);
+}
+function resetSettingsTapState(){
+  clearTimeout(settingsTapResetTimer); settingsTapResetTimer=null;
+  settingsTapCount=0; settingsTapLastAt=0;
+}
+function onSettingsTitleTap(){
+  if(!me) return;
+  try{ if(window.getSelection) window.getSelection().removeAllRanges(); }catch(e){}
+  var now=Date.now();
+  if(now-settingsTapLastAt>2000) settingsTapCount=0;
+  settingsTapCount+=1;
+  settingsTapLastAt=now;
+  clearTimeout(settingsTapResetTimer); settingsTapResetTimer=null;
+  if(settingsTapCount>=5){
+    resetSettingsTapState();
+    if(isAdmin()){ toast('이미 관리자 권한을 가지고 있어요.'); return; }
+    openAdminSwitchPrompt();
+    return;
+  }
+  settingsTapResetTimer=setTimeout(resetSettingsTapState,2200);
+}
+function openAdminSwitchPrompt(){
+  if(!me) return;
+  if(isAdmin()){ toast('이미 관리자 권한을 가지고 있어요.'); return; }
+  openSheet('관리자 계정으로 전환하시겠습니까?','기존 관리자에게 관리자 권한 부여 요청을 보냅니다.');
+  sheet.classList.add('notifSheet');
+  var card=el('div','adminSwitchCard');
+  var isPending=myAdminRequest&&myAdminRequest.status==='pending';
+  card.appendChild(txt('p','','요청 계정: '+(me.email||me.uid)));
+  card.appendChild(txt('p','',isPending
+    ?'이미 관리자 권한 부여 요청을 보냈어요. 기존 관리자가 알림에서 권한을 부여하면 앱 내 관리자 기능을 함께 사용할 수 있어요.'
+    :'관리자에게 권한 부여 요청 알림이 전송되며, 권한이 부여되면 왕관 모양 관리자 메뉴와 관리 기능을 함께 공유하게 됩니다.'));
+  sheet.appendChild(card);
+  var note=formNote(), a=actions();
+  if(isPending){
+    a.appendChild(bigBtn('확인',function(){ sheet.close(); }));
+    return;
+  }
+  var cancelBtn=ghostBtn('취소',function(){ sheet.close(); });
+  var reqBtn=bigBtn('권한 요청 보내기',function(){
+    cancelBtn.disabled=true; reqBtn.disabled=true; reqBtn.textContent='요청 중'; note.textContent='';
+    B.requestAdminAccess({uid:me.uid,email:me.email||'',nick:(meDoc&&meDoc.nick)||me.displayName||'회원'}).then(function(res){
+      if(res&&res.alreadyAdmin){ sheet.close(); toast('이미 관리자 권한을 가지고 있어요.'); return; }
+      if(res&&res.alreadyPending){ openAdminSwitchPrompt(); toast('이미 관리자 권한을 요청했어요.'); return; }
+      sheet.close();
+      toast('관리자에게 권한 부여 요청을 보냈어요.');
+    }).catch(function(err){
+      cancelBtn.disabled=false; reqBtn.disabled=false; reqBtn.textContent='권한 요청 보내기';
+      var rep=recordError('관리자 권한 요청을 보내지 못했어요',err,'관리자 권한 요청');
+      note.textContent='요청을 보내지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
+      attachTroubleshootBtn(note,rep,openAdminSwitchPrompt);
+    });
+  });
+  a.append(cancelBtn,reqBtn);
+}
+var notifSheetBody=null, notifTab='unread';
+function renderNotificationSheetContent(){
+  if(!notifSheetBody) return;
+  notifSheetBody.innerHTML='';
+  var unreadItems=notifList.filter(function(it){ return !notifReadMap[it.id]; });
+  var readItems=notifList.filter(function(it){ return !!notifReadMap[it.id]; });
+  var activeTab=notifTab==='read'?'read':'unread';
+  var visibleItems=activeTab==='read'?readItems:unreadItems;
+
+  var tabs=el('div','notifTabs');
+  var unreadTabBtn=ghostBtn('확인하지 않은 알림 ('+unreadItems.length+')',function(){ notifTab='unread'; renderNotificationSheetContent(); });
+  var readTabBtn=ghostBtn('확인한 알림 ('+readItems.length+')',function(){ notifTab='read'; renderNotificationSheetContent(); });
+  unreadTabBtn.setAttribute('aria-pressed',activeTab==='unread'?'true':'false');
+  readTabBtn.setAttribute('aria-pressed',activeTab==='read'?'true':'false');
+  tabs.append(unreadTabBtn,readTabBtn);
+  notifSheetBody.appendChild(tabs);
+
+  if(activeTab==='unread'&&unreadItems.length){
+    var bar=el('div','notifTopBar');
+    bar.appendChild(txt('span','notifCountText','확인하지 않은 알림 '+unreadItems.length+'개'));
+    var allReadBtn=txt('button','mini','모두 읽음');
+    allReadBtn.type='button';
+    allReadBtn.onclick=function(){ markAllNotifsRead(); };
+    bar.appendChild(allReadBtn);
+    notifSheetBody.appendChild(bar);
+  }
+
+  if(!visibleItems.length){
+    notifSheetBody.appendChild(txt('p','notifEmpty',activeTab==='read'
+      ?'확인한 알림이 아직 없어요.'
+      :'확인하지 않은 새 알림이 없어요.'));
+    return;
+  }
+
+  var list=el('div','notifList');
+  visibleItems.forEach(function(item){
+    var isUnread=!notifReadMap[item.id];
+    var card=el('article','notifItem'+(isUnread?' unread':''));
+    var head=el('div','notifItemHead');
+    var tag=el('span','notifItemTag'+(item.kind==='admin_request'?' admin':(item.kind==='notice'?' notice':'')));
+    if(isUnread) tag.appendChild(el('span','notifItemDot'));
+    tag.appendChild(document.createTextNode(item.tag||'알림'));
+    head.append(tag,txt('span','notifItemTime',item.ts?formatKstDateTime(item.ts).slice(0,16):''));
+    card.append(head,txt('p','notifItemTitle',item.title||'알림'),txt('p','notifItemBody',previewNotifText(item.body||'',60)));
+
+    var rowActs=el('div','notifActs');
+    if(item.kind==='admin_request'&&item.req){
+      var rejectBtn=txt('button','mini danger','거절');
+      var grantBtn=txt('button','mini','권한 부여');
+      rejectBtn.type='button'; grantBtn.type='button';
+      rejectBtn.onclick=function(){
+        rejectBtn.disabled=true; grantBtn.disabled=true; rejectBtn.textContent='처리 중';
+        B.rejectAdminRequest(item.req.uid).then(function(){
+          markNotifRead(item.id,true);
+          hideNotifAlert();
+          toast('관리자 권한 요청을 거절했어요.');
+        }).catch(function(err){
+          rejectBtn.disabled=false; grantBtn.disabled=false; rejectBtn.textContent='거절';
+          var rep=recordError('요청을 거절하지 못했어요',err,'관리자 권한 요청 거절');
+          openTroubleshoot(rep,{onBack:openNotifications});
+        });
+      };
+      grantBtn.onclick=function(){
+        rejectBtn.disabled=true; grantBtn.disabled=true; grantBtn.textContent='처리 중';
+        B.approveAdminRequest(item.req.uid,item.req).then(function(){
+          markNotifRead(item.id,true);
+          hideNotifAlert();
+          toast(safe(item.req.nick,'회원')+'님에게 관리자 권한을 부여했어요.');
+        }).catch(function(err){
+          rejectBtn.disabled=false; grantBtn.disabled=false; grantBtn.textContent='권한 부여';
+          var rep=recordError('관리자 권한을 부여하지 못했어요',err,'관리자 권한 부여');
+          openTroubleshoot(rep,{onBack:openNotifications});
+        });
+      };
+      rowActs.append(rejectBtn,grantBtn);
+    } else {
+      if(isUnread){
+        var readBtn=txt('button','mini','읽음');
+        readBtn.type='button';
+        readBtn.onclick=function(){ markNotifRead(item.id); };
+        rowActs.appendChild(readBtn);
+      }
+      var viewLabel=item.kind==='cheer'?'응원 보기':(item.kind==='diary_reply'?'답장 보기':(item.kind==='notice'?'자세히 보기':'확인'));
+      var viewBtn=txt('button','mini',viewLabel);
+      viewBtn.type='button';
+      viewBtn.onclick=function(){ openNotifTarget(item); };
+      rowActs.appendChild(viewBtn);
+    }
+    card.appendChild(rowActs);
+    list.appendChild(card);
+  });
+  notifSheetBody.appendChild(list);
+}
+function openNotifications(tab){
+  if(needLogin('로그인하면 알림을 확인할 수 있어요.')) return;
+  hideNotifAlert();
+  notifTab=(tab==='read')?'read':'unread';
+  openSheet('알림','내 나무에 달린 댓글, 내 일기에 도착한 나무의 답장, 전체 공지를 확인할 수 있어요.');
+  sheet.classList.add('notifSheet');
+  notifSheetBody=el('div');
+  sheet.appendChild(notifSheetBody);
+  renderNotificationSheetContent();
+}
+function openAdminAccessSheet(){
+  if(!isAdmin()) return;
+  openSheet('관리자 권한 공유 관리','설정 창에서 ‘설정’ 글자를 5번 눌러 들어온 권한 요청을 확인하고, 현재 관리자 권한을 함께 쓰는 계정을 관리할 수 있어요.');
+  sheet.classList.add('adminGuideSheet','adminCleanupSheet');
+
+  var pending=(adminRequests||[]).filter(function(r){ return r&&r.status==='pending'; });
+  var reqSec=el('section','adminShareSection');
+  reqSec.appendChild(txt('h3','','대기 중인 권한 요청 ('+pending.length+')'));
+  var reqList=el('div','adminCleanupList');
+  if(!pending.length){
+    reqList.appendChild(txt('p','adminCleanupEmpty','현재 대기 중인 관리자 권한 요청이 없어요.'));
+  } else {
+    pending.forEach(function(r){
+      var row=el('div','adminCleanupItem');
+      var meta=el('div','adminCleanupMeta');
+      meta.append(
+        txt('strong','adminCleanupName',safe(r.nick,'회원')),
+        txt('p','adminCleanupSub',r.email||'이메일 정보 없음'),
+        txt('p','adminCleanupUid','요청 시각: '+(r.requestedAt?formatKstDateTime(r.requestedAt).slice(0,16):'-'))
+      );
+      var act=el('div','adminCleanupItemAct');
+      act.style.gap='6px';
+      var rej=txt('button','mini danger','거절'), ok=txt('button','mini','권한 부여');
+      rej.type='button'; ok.type='button';
+      rej.onclick=function(){
+        rej.disabled=true; ok.disabled=true;
+        B.rejectAdminRequest(r.uid).then(function(){ openAdminAccessSheet(); toast('권한 요청을 거절했어요.'); }).catch(function(){ rej.disabled=false; ok.disabled=false; toast('거절하지 못했어요.'); });
+      };
+      ok.onclick=function(){
+        rej.disabled=true; ok.disabled=true;
+        B.approveAdminRequest(r.uid,r).then(function(){ openAdminAccessSheet(); toast(safe(r.nick,'회원')+'님에게 관리자 권한을 부여했어요.'); }).catch(function(){ rej.disabled=false; ok.disabled=false; toast('권한을 부여하지 못했어요.'); });
+      };
+      act.append(rej,ok);
+      row.append(meta,act);
+      reqList.appendChild(row);
+    });
+  }
+  reqSec.appendChild(reqList);
+  sheet.appendChild(reqSec);
+
+  var shareSec=el('section','adminShareSection');
+  shareSec.appendChild(txt('h3','','관리자 권한을 함께 쓰는 계정'));
+  var shareList=el('div','adminCleanupList');
+  shareList.appendChild(txt('p','adminCleanupEmpty','목록을 불러오는 중이에요...'));
+  shareSec.appendChild(shareList);
+  sheet.appendChild(shareSec);
+
+  actions().appendChild(ghostBtn('관리자 메뉴로 돌아가기',openAdminMenu));
+
+  (typeof B.listAdmins==='function'?B.listAdmins():Promise.resolve([])).then(function(admins){
+    if(!sheet.open||!sheet.classList.contains('adminCleanupSheet')) return;
+    shareList.innerHTML='';
+    var primaryRow=el('div','adminCleanupItem');
+    var pMeta=el('div','adminCleanupMeta');
+    var pHead=el('div','adminCleanupItemHead');
+    pHead.append(txt('strong','adminCleanupName',SUPPORT_EMAIL),txt('span','adminCleanupBadge self','기본 관리자'));
+    pMeta.append(pHead,txt('p','adminCleanupSub','기본 관리자 계정은 권한을 해제할 수 없어요.'));
+    primaryRow.appendChild(pMeta);
+    shareList.appendChild(primaryRow);
+
+    (admins||[]).filter(function(a){ return a&&String(a.email||'').toLowerCase()!==SUPPORT_EMAIL; }).forEach(function(a){
+      var row=el('div','adminCleanupItem');
+      var meta=el('div','adminCleanupMeta');
+      var head=el('div','adminCleanupItemHead');
+      head.appendChild(txt('strong','adminCleanupName',safe(a.nick,'관리자')));
+      var isSelf=!!(me&&a.uid===me.uid);
+      if(isSelf) head.appendChild(txt('span','adminCleanupBadge self','현재 내 계정'));
+      else head.appendChild(txt('span','adminCleanupBadge','공유 관리자'));
+      meta.append(head,txt('p','adminCleanupSub',a.email||'이메일 정보 없음'));
+      meta.appendChild(txt('p','adminCleanupUid','부여 시각: '+(a.grantedAt?formatKstDateTime(a.grantedAt).slice(0,16):'-')));
+      var act=el('div','adminCleanupItemAct');
+      var btn=txt('button',isSelf?'mini':'mini danger',isSelf?'사용 중':'권한 해제');
+      btn.type='button'; btn.disabled=isSelf;
+      btn.onclick=function(){
+        btn.disabled=true; btn.textContent='해제 중';
+        B.revokeAdminAccess(a.uid).then(function(){
+          openAdminAccessSheet();
+          toast(safe(a.nick,'회원')+'님의 관리자 권한을 해제했어요.');
+        }).catch(function(){
+          btn.disabled=false; btn.textContent='권한 해제';
+          toast('권한을 해제하지 못했어요.');
+        });
+      };
+      act.appendChild(btn);
+      row.append(meta,act);
+      shareList.appendChild(row);
+    });
+  }).catch(function(){
+    if(!sheet.open) return;
+    shareList.innerHTML='';
+    shareList.appendChild(txt('p','adminCleanupEmpty','공유 관리자 목록을 불러오지 못했어요.'));
+  });
+}
+
 function openAdminGuide(){
   if(!isAdmin()) return;
   openSheet('관리자 안내','아래 순서대로 천천히 눌러 보시면 됩니다.');
@@ -1710,6 +2290,14 @@ function openAdminGuide(){
     {
       title:'4. 계정·나무 정리하기',
       body:'오른쪽 위 왕관 모양 관리자 버튼을 눌러 ‘계정·나무 정리’를 선택하면 회원·나무·구름 기록을 골라서 지울 수 있어요. 만약 Google 로그인 목록에서 계정만 먼저 지웠다면 회원 번호(UID)를 직접 입력해 남은 기록도 정리할 수 있습니다.'
+    },
+    {
+      title:'5. 관리자 권한 요청 확인 및 공유하기',
+      body:'다른 회원이 설정 창 맨 위 ‘설정’ 글자를 연속으로 5번 눌러 관리자 전환을 요청하면 화면과 알림 창에 ‘관리자 권한 요청이 왔어요’ 알림이 뜹니다. 알림에서 ‘권한 부여’를 누르면 앱 내 관리자 권한을 함께 공유할 수 있고, ‘관리자 권한 공유 관리’에서 언제든 해제할 수 있어요.'
+    },
+    {
+      title:'6. 전체 회원에게 공지 알림 보내기',
+      body:'왕관 모양 관리자 메뉴에서 ‘전체 공지 보내기’를 누르고 제목과 내용을 입력한 뒤 ‘전체 알림 보내기’를 누르면, 로그인한 모든 회원의 화면과 알림 창에 공지사항이 발송됩니다. 보낸 공지는 같은 화면 아래쪽 목록에서 언제든 삭제할 수 있어요.'
     }
   ];
   steps.forEach(function(st){
@@ -2004,17 +2592,108 @@ function openAdminCleanup(tab,query){
     attachTroubleshootBtn(listNote,rep,function(){ openAdminCleanup(activeTab,searchInput.value); });
   });
 }
+var adminNoticeListBox=null;
+function renderAdminNoticeList(){
+  if(!adminNoticeListBox) return;
+  adminNoticeListBox.innerHTML='';
+  var items=(globalNotices||[]).slice();
+  if(!items.length){
+    adminNoticeListBox.appendChild(txt('p','adminCleanupEmpty','아직 발송한 전체 공지가 없어요.'));
+    return;
+  }
+  items.forEach(function(n){
+    var row=el('div','adminCleanupItem');
+    var meta=el('div','adminCleanupMeta');
+    meta.append(
+      txt('strong','adminCleanupName',n.title||'공지사항'),
+      txt('p','adminCleanupSub',previewNotifText(n.body||'',72)),
+      txt('p','adminCleanupUid','발송 시각: '+(n.createdAt?formatKstDateTime(n.createdAt).slice(0,16):'-'))
+    );
+    var act=el('div','adminCleanupItemAct');
+    var del=txt('button','mini danger','삭제');
+    del.type='button';
+    del.onclick=function(){
+      del.disabled=true; del.textContent='삭제 중';
+      B.deleteNotice(n.id).then(function(){
+        toast('공지를 삭제했어요.');
+      }).catch(function(err){
+        del.disabled=false; del.textContent='삭제';
+        var rep=recordError('공지를 삭제하지 못했어요',err,'전체 공지 삭제');
+        openTroubleshoot(rep,{onBack:openAdminNoticeSheet});
+      });
+    };
+    act.appendChild(del);
+    row.append(meta,act);
+    adminNoticeListBox.appendChild(row);
+  });
+}
+function openAdminNoticeSheet(){
+  if(!isAdmin()) return;
+  openSheet('전체 공지 보내기','로그인한 모든 회원의 화면과 알림 창에 공지사항을 발송합니다.');
+  sheet.classList.add('adminGuideSheet','adminCleanupSheet','adminNoticeSheet');
+
+  var form=el('section','adminNoticeForm');
+  var titleIn=field('공지 제목','예: 수확 체험 안내, 서비스 점검 공지',60);
+  var bodyField=document.createElement('label');
+  bodyField.textContent='공지 내용';
+  var bodyTa=document.createElement('textarea');
+  bodyTa.maxLength=600;
+  bodyTa.rows=4;
+  bodyTa.placeholder='모든 회원에게 전할 공지 내용을 적어 주세요.';
+  bodyField.appendChild(bodyTa);
+  var note=formNote();
+  var sendWrap=el('div','adminNoticeSendRow');
+  var sendBtn=bigBtn('전체 알림 보내기',function(){
+    var title=titleIn.value.trim(), body=bodyTa.value.trim();
+    if(!title){ note.textContent='공지 제목을 입력해 주세요.'; titleIn.focus(); return; }
+    if(!body){ note.textContent='공지 내용을 입력해 주세요.'; bodyTa.focus(); return; }
+    sendBtn.disabled=true; sendBtn.textContent='발송 중'; note.textContent='';
+    var sender=((meDoc&&meDoc.nick)||'엉클리틀').trim().slice(0,30)||'엉클리틀';
+    B.createNotice({title:title,body:body,createdByName:sender}).then(function(){
+      titleIn.value=''; bodyTa.value='';
+      sendBtn.disabled=false; sendBtn.textContent='전체 알림 보내기';
+      renderAdminNoticeList();
+      toast('전체 회원에게 공지 알림을 보냈어요.');
+    }).catch(function(err){
+      sendBtn.disabled=false; sendBtn.textContent='전체 알림 보내기';
+      var rep=recordError('공지 알림을 보내지 못했어요',err,'전체 공지 발송');
+      note.textContent='공지 알림을 보내지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
+      attachTroubleshootBtn(note,rep,openAdminNoticeSheet);
+    });
+  });
+  sendWrap.appendChild(sendBtn);
+  form.append(titleIn.parentNode,bodyField,note,sendWrap);
+  sheet.appendChild(form);
+
+  var histSec=el('section','adminShareSection');
+  histSec.appendChild(txt('h3','','보낸 공지 목록'));
+  adminNoticeListBox=el('div','adminCleanupList');
+  histSec.appendChild(adminNoticeListBox);
+  sheet.appendChild(histSec);
+  renderAdminNoticeList();
+
+  actions().appendChild(ghostBtn('관리자 메뉴로 돌아가기',openAdminMenu));
+}
 function openAdminMenu(){
   if(!isAdmin()) return;
-  openSheet('관리자','관리자 계정('+SUPPORT_EMAIL+')으로 로그인했을 때만 보이는 메뉴예요.');
+  openSheet('관리자','관리자 권한('+(me.email||SUPPORT_EMAIL)+')으로 로그인했을 때만 보이는 메뉴예요.');
   sheet.classList.add('adminGuideSheet');
+  var pending=(adminRequests||[]).filter(function(r){ return r&&r.status==='pending'; }).length;
   var box=el('div','settings-actions');
+  box.appendChild(bigBtn('전체 공지 보내기',openAdminNoticeSheet));
+  box.appendChild(bigBtn(pending?'관리자 권한 공유 관리 ('+pending+'건 요청)':'관리자 권한 공유 관리',openAdminAccessSheet));
   box.appendChild(bigBtn('관리자 안내',openAdminGuide));
   box.appendChild(bigBtn('계정·나무 정리',function(){ openAdminCleanup('users'); }));
   sheet.appendChild(box);
 }
 function openMenu(){
+  resetSettingsTapState();
   openSheet('설정');
+  var titleEl=$('sheetTitle');
+  if(titleEl){
+    titleEl.classList.add('settingsTitleTap');
+    titleEl.onclick=onSettingsTitleTap;
+  }
   var box=el('div','settings-actions');
   box.appendChild(bigBtn('내 캐릭터 커스텀하기',requestCharacterCustom));
   box.appendChild(bigBtn('분석 쿠키 설정',openAnalyticsSettings));
@@ -2064,6 +2743,7 @@ function openTutorial(first,onDone){
   openSheet('사용 방법',first?'가입을 환영해요. 먼저 이곳을 천천히 둘러보세요.':'');
   sheet.classList.add('tutorialSheet');
   var gearSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>';
+  var bellSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
   var wrap=el('article','legalDoc tutorialDoc');
   var introSec=el('section','tutorialSection');
   introSec.append(
@@ -2097,6 +2777,7 @@ function openTutorial(first,onDone){
         {icon:ICON.map, name:'벼락밭 지도', desc:'밭의 숲을 눌러 이웃 나무를 구경하고, 받은 나무 코드를 입력할 수 있어요.'},
         {icon:HEART, name:'하트와 응원', desc:'이웃 나무에서는 하루 한 번 하트를 누르고, ‘나무 이야기’에서 응원을 남길 수 있어요.'},
         {icon:FRUIT, name:'딴 귤 바구니', desc:'내 나무 아래쪽에서 지금까지 딴 귤과 이웃에게 받은 하트 수를 확인해요.'},
+        {icon:bellSvg, name:'알림 (오른쪽 위)', desc:'내 나무 댓글, 일기 답장, 전체 공지가 오면 바로 알려줘요.'},
         {icon:gearSvg, name:'설정 (오른쪽 위)', desc:'내 캐릭터 꾸미기, 분석 쿠키 설정, 로그아웃, 회원 탈퇴를 이용할 수 있어요.'}
       ]
     }
@@ -2544,9 +3225,10 @@ window.addEventListener('pagehide',function(){ if(beatId&&me) B.leave(beatId,me.
 function afterAuth(u){
   var ticket=++authTicket, isNewUser=false;
   clearTimeout(authPopupTimer);
+  resetSettingsTapState();
   authResolved=false;
   me=u;
-  if(!u) authSessionTrackedUid=null;
+  if(!u){ authSessionTrackedUid=null; clearNotifWatchers(); }
   var ready=u?B.getUser(u.uid).then(function(d){
     if(d){ meDoc=d; return; }
     isNewUser=true;
@@ -2565,6 +3247,7 @@ function afterAuth(u){
         authSessionTrackedUid=me.uid;
         trackEvent(isNewUser?'sign_up':'login',{method:'google'});
       }
+      startAuthNotifWatchers();
       var first=pendingTutorial||(meDoc&&!meDoc.tutorialSeen&&!myTreeId()); pendingTutorial=false;
       if(sheet.open&&sheet.classList.contains('authSheet')) sheet.close();
       curKey=null; startBeat(); route(); openRequestedReview();
@@ -2580,11 +3263,11 @@ function afterAuth(u){
       }
     }).catch(function(){
       if(ticket!==authTicket) return;
-      authResolved=true; curKey=null; route();
+      authResolved=true; startAuthNotifWatchers(); curKey=null; route();
     });
   }).catch(function(){
     if(ticket!==authTicket) return;
-    authResolved=true; curKey=null; route();
+    authResolved=true; clearNotifWatchers(); curKey=null; route();
   });
 }
 var reviewOpened=false;
@@ -2619,6 +3302,8 @@ function boot(backend){
   if($('mapLogin')) $('mapLogin').onclick=function(){ openAuth('login'); };
   if($('adminBtn')) $('adminBtn').onclick=openAdminMenu;
   if($('mapAdminBtn')) $('mapAdminBtn').onclick=openAdminMenu;
+  if($('notifBtn')) $('notifBtn').onclick=openNotifications;
+  if($('mapNotifBtn')) $('mapNotifBtn').onclick=openNotifications;
   $('help').onclick=function(){ openTutorial(false); };
   $('mapHelp').onclick=function(){ openTutorial(false); };
   $('mapCodeBtn').onclick=openPhysicalTreeCode;

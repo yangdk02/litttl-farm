@@ -4,7 +4,7 @@
 
 ## 주요 파일
 
-- `firestore.rules`: 회원, 나무, 구름, 일기, 응원 데이터 접근 규칙입니다.
+- `firestore.rules`: 회원, 나무, 구름, 일기, 응원, 공유 관리자 권한(`admins`, `adminRequests`), 전체 공지(`notices`) 데이터 접근 규칙입니다. (프로젝트 루트의 `firestore.rules`와 항상 동일한 내용으로 유지합니다.)
 - `firebase.json`: `back/` 폴더 기준으로 규칙을 단독 배포할 때 사용하는 설정입니다.
 - `worker.js`: MET Norway 기상 자료(`/api/weather`)를 중계하는 Worker 스크립트입니다.
 - `wrangler.toml.example`: Cloudflare Worker 배포 설정 예시입니다.

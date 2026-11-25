@@ -327,7 +327,7 @@ app.use(express.static(frontDir, {
     } else if (/\.html$/i.test(filePath)) {
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     } else if (/\.(css|js)$/i.test(filePath)) {
-      res.set('Cache-Control', 'public, max-age=300');
+      res.set('Cache-Control', 'no-cache, must-revalidate');
     }
   },
 }));

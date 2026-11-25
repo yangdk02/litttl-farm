@@ -298,6 +298,9 @@ test('트러블 슈팅 및 D2Coding 폰트 정적 서빙/스타일 확인', asyn
   assert.doesNotMatch(appJs, /오류 화면 예시 보기/);
   assert.doesNotMatch(appJs, /openSampleTroubleshoot/);
   assert.match(appJs, /openTroubleshoot/);
+  assert.match(appJs, /txt\('button','mini','오류 내용 복사하기'\)/);
+  assert.doesNotMatch(appJs, /bigBtn\('오류 내용 복사하기'/);
+  assert.doesNotMatch(css, /\.troubleshootHead \.mini\{/);
   assert.doesNotMatch(appJs, /crayonDiaryIcon/);
   assert.match(appJs, /class="diaryIconArt"[^>]*viewBox="0 0 40 40"/);
   assert.match(appJs, /trees\/tree-0/);
@@ -494,5 +497,173 @@ test('응원 관리: 나무 이야기 내 댓글 열람/작성자 본인 삭제,
   assert.match(adminGuide, /응원 지우기/);
   assert.match(adminGuide, /yangdk02@gmail\.com/);
 });
+
+test('알림 및 숨은 설정 5회 관리자 권한 요청/공유: 실시간 감시, 승인·거절·해제, UI/규칙 검증', async () => {
+  const { context } = createFrontendSandbox();
+  const backend = context.DemoBackend();
+  const user = await backend.signInWithGoogle();
+
+  // 1) watchDiary 실시간 감시
+  let watchedDiaries = [];
+  const unsubDiary = backend.watchDiary('tree-notif', (list) => { watchedDiaries = list; });
+  await backend.saveDiary('tree-notif', '2026-11-24__' + user.uid, {
+    date: '2026-11-24',
+    icon: 'tangerine',
+    text: '오늘 일기',
+    uid: user.uid,
+    comment: '나무 답장이 도착했어요.',
+    replyReadyAt: Date.now() - 1000,
+    replyGenerated: true,
+  });
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(watchedDiaries.length, 1);
+  assert.equal(watchedDiaries[0].comment, '나무 답장이 도착했어요.');
+  unsubDiary();
+
+  // 2) 관리자 권한 요청 -> 승인 -> 권한 공유 -> 해제
+  let isUserAdmin = null;
+  let myReq = null;
+  let allReqs = [];
+  const unsubStatus = backend.watchAdminStatus(user.uid, user.email, (v) => { isUserAdmin = v; });
+  const unsubMyReq = backend.watchMyAdminRequest(user.uid, (r) => { myReq = r; });
+  const unsubAllReqs = backend.watchAdminRequests((list) => { allReqs = list; });
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(isUserAdmin, false);
+  assert.equal(myReq, null);
+  assert.equal(allReqs.length, 0);
+
+  const reqRes = await backend.requestAdminAccess({ uid: user.uid, email: user.email, nick: '귤나무지기' });
+  assert.equal(reqRes.ok, true);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(myReq.status, 'pending');
+  assert.equal(allReqs.length, 1);
+  assert.equal(allReqs[0].uid, user.uid);
+
+  const dupRes = await backend.requestAdminAccess({ uid: user.uid, email: user.email, nick: '귤나무지기' });
+  assert.equal(dupRes.alreadyPending, true);
+
+  await backend.approveAdminRequest(user.uid, myReq);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(isUserAdmin, true);
+  assert.equal(myReq.status, 'approved');
+
+  const admins = await backend.listAdmins();
+  assert.ok(admins.some((a) => a.uid === user.uid && a.email === user.email));
+
+  await assert.rejects(
+    () => backend.revokeAdminAccess(user.uid),
+    (err) => err.code === 'admin/self-revoke'
+  );
+
+  // 다른 요청자는 거절 후 재요청 가능 확인
+  await backend.requestAdminAccess({ uid: 'u_other', email: 'other@litttl.farm', nick: '이웃회원' });
+  await backend.rejectAdminRequest('u_other');
+  await new Promise((r) => setTimeout(r, 15));
+  const otherAfterReject = allReqs.find((r) => r.uid === 'u_other');
+  assert.equal(otherAfterReject.status, 'rejected');
+
+  await backend.signOut();
+  await backend.revokeAdminAccess(user.uid);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(isUserAdmin, false);
+  unsubStatus();
+  unsubMyReq();
+  unsubAllReqs();
+
+  // 3) HTML, CSS, JS, 안내서 및 Firestore 규칙 확인
+  const indexHtml = fs.readFileSync(path.join(rootDir, 'front', 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
+  const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
+  const rootRules = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8');
+  const backRules = fs.readFileSync(path.join(rootDir, 'back', 'firestore.rules'), 'utf8');
+  const userGuide = fs.readFileSync(path.join(rootDir, 'USER_GUIDE.md'), 'utf8');
+  const adminGuide = fs.readFileSync(path.join(rootDir, 'ADMIN_GUIDE.md'), 'utf8');
+
+  assert.match(indexHtml, /id="notifBtn"[^>]*hidden[\s\S]*id="help"/);
+  assert.match(indexHtml, /id="mapNotifBtn"[^>]*hidden[\s\S]*id="mapHelp"/);
+  assert.match(indexHtml, /id="notifAlert"[^>]*hidden/);
+  assert.match(css, /#notifBtn,#mapNotifBtn/);
+  assert.match(css, /\.notifAlert\{/);
+  assert.match(css, /\.notifSheet\{/);
+  assert.match(appJs, /settingsTapCount>=5/);
+  assert.match(appJs, /titleEl\.onclick=onSettingsTitleTap/);
+  assert.doesNotMatch(appJs, /helpTapCount|onHelpClick|resetHelpTapState/);
+  assert.match(appJs, /관리자 계정으로 전환하시겠습니까\?/);
+  assert.match(appJs, /관리자 권한 요청이 왔어요/);
+  assert.match(appJs, /내 나무에 새 댓글이 달렸어요/);
+  assert.match(appJs, /내 일기에 나무의 답장이 달렸어요/);
+  assert.match(appJs, /openNotifications/);
+  assert.doesNotMatch(appJs, /관리자 권한 요청을 확인할 수 있어요/);
+  assert.match(appJs, /확인하지 않은 알림/);
+  assert.match(appJs, /확인한 알림/);
+  assert.match(appJs, /previewNotifText/);
+  assert.match(css, /\.notifTabs\{/);
+  assert.match(css, /\.notifItemBody\{[^}]*-webkit-line-clamp:2/);
+  assert.match(appJs, /openAdminAccessSheet/);
+  assert.doesNotMatch(appJs, /알림 확인하기/);
+  assert.match(appJs, /function openMapTree\(f,n\)\{ if\(isAdmin\(\)\)/);
+  assert.doesNotMatch(appJs, /방명록/);
+  assert.doesNotMatch(userGuide, /관리자 계정으로 전환/);
+  assert.doesNotMatch(userGuide, /5번/);
+  assert.match(userGuide, /종 모양\(`알림`\) 버튼/);
+  assert.match(adminGuide, /‘설정’ 글자를 연속으로 5번/);
+  assert.doesNotMatch(adminGuide, /물음표\(`\?`\) 버튼을 연속으로 5번/);
+  assert.match(adminGuide, /1부\. 개발자가 따로 없는 경우/);
+  assert.match(adminGuide, /2부\. 개발자가 따로 있는 경우/);
+  assert.match(adminGuide, /git clone/);
+  assert.match(adminGuide, /전체 공지 보내기/);
+  assert.match(userGuide, /확인하지 않은 알림/);
+  assert.match(userGuide, /확인한 알림/);
+  assert.match(userGuide, /공지/);
+  assert.equal(rootRules, backRules);
+  assert.match(rootRules, /function primaryAdmin\(\)/);
+  assert.match(rootRules, /match \/admins\/\{id\}/);
+  assert.match(rootRules, /match \/adminRequests\/\{id\}/);
+  assert.match(rootRules, /function isValidNotice\(data\)/);
+  assert.match(rootRules, /match \/notices\/\{id\}/);
+});
+
+test('관리자 전체 공지 발송: 작성, 실시간 구독, 삭제 및 스키마 검증', async () => {
+  const { context } = createFrontendSandbox();
+  const backend = context.DemoBackend();
+  await backend.signInWithGoogle();
+
+  let noticed = [];
+  const unsub = backend.watchNotices((list) => { noticed = list; });
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(noticed.length, 0);
+
+  await assert.rejects(
+    () => backend.createNotice({ title: '  ', body: '내용' }),
+    (err) => err.code === 'notice/empty'
+  );
+
+  const created = await backend.createNotice({
+    title: '수확 체험 안내',
+    body: '이번 주말 벼락밭에서 감귤 수확 체험이 열립니다.',
+    createdByName: '엉클리틀',
+  });
+  assert.ok(created.id);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(noticed.length, 1);
+  assert.equal(noticed[0].title, '수확 체험 안내');
+
+  await backend.deleteNotice(created.id);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(noticed.length, 0);
+  unsub();
+
+  const appJs = fs.readFileSync(path.join(rootDir, 'front', 'js', 'app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
+  const blueprint = JSON.parse(fs.readFileSync(path.join(rootDir, 'firebase-blueprint.json'), 'utf8'));
+  assert.match(appJs, /openAdminNoticeSheet/);
+  assert.match(appJs, /전체 공지 보내기/);
+  assert.match(appJs, /openNoticeDetail/);
+  assert.match(css, /\.noticeDetailBox\{/);
+  assert.match(css, /\.adminNoticeForm\{/);
+  assert.ok(blueprint.entities.Notice);
+  assert.ok(blueprint.firestore['/notices/{noticeId}']);
+});
+
 
 

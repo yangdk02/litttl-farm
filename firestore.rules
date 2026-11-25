@@ -9,7 +9,39 @@ service cloud.firestore {
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
     function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function text(v, n) { return v is string && v.size() > 0 && v.size() <= n; }
-    function admin() { return signedIn() && request.auth.token.email == 'yangdk02@gmail.com'; }
+    function primaryAdmin() { return signedIn() && request.auth.token.email == 'yangdk02@gmail.com'; }
+    function admin() { return primaryAdmin() || (signedIn() && exists(/databases/$(database)/documents/admins/$(uid()))); }
+    function isValidAdminGrant(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'grantedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'nick', 'grantedBy', 'grantedByEmail', 'grantedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 120
+        && (!data.keys().hasAny(['nick']) || (data.nick is string && data.nick.size() <= 30))
+        && isValidId(data.grantedBy)
+        && (!data.keys().hasAny(['grantedByEmail']) || (data.grantedByEmail is string && data.grantedByEmail.size() <= 120))
+        && data.grantedAt is int;
+    }
+    function isValidAdminRequest(data) {
+      return data.keys().hasAll(['uid', 'email', 'status', 'requestedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'nick', 'status', 'requestedAt', 'reviewedAt', 'reviewedBy'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 120
+        && (!data.keys().hasAny(['nick']) || (data.nick is string && data.nick.size() <= 30))
+        && data.status in ['pending', 'approved', 'rejected']
+        && data.requestedAt is int
+        && (!data.keys().hasAny(['reviewedAt']) || data.reviewedAt == null || data.reviewedAt is int)
+        && (!data.keys().hasAny(['reviewedBy']) || data.reviewedBy == null || (data.reviewedBy is string && data.reviewedBy.size() <= 128));
+    }
+    function isValidNotice(data) {
+      return data.keys().hasAll(['title', 'body', 'createdAt', 'createdBy'])
+        && data.keys().hasOnly(['id', 'title', 'body', 'createdAt', 'createdBy', 'createdByName'])
+        && (!data.keys().hasAny(['id']) || isValidId(data.id))
+        && text(data.title, 60)
+        && text(data.body, 600)
+        && data.createdAt is int
+        && isValidId(data.createdBy)
+        && (!data.keys().hasAny(['createdByName']) || (data.createdByName is string && data.createdByName.size() <= 30));
+    }
     function member(treeId) { return signedIn() && uid() in get(/databases/$(database)/documents/trees/$(treeId)).data.members; }
     function isValidUser(data) {
       return data.keys().hasOnly(['nick', 'email', 'treeId', 'invites', 'lastCloudAt', 'lastDiaryReplyDate', 'tutorialSeen', 'seed'])
@@ -198,6 +230,53 @@ service cloud.firestore {
           && member(request.resource.data.treeId))
       );
       allow delete: if signedIn() && isValidId(code);
+    }
+
+    match /admins/{id} {
+      allow get: if (signedIn() && isValidId(id) && uid() == id) || admin();
+      allow list: if admin();
+      allow create, update: if admin() && isValidId(id)
+        && isValidAdminGrant(request.resource.data)
+        && request.resource.data.uid == id
+        && request.resource.data.grantedBy == uid();
+      allow delete: if admin() && isValidId(id) && id != uid();
+    }
+
+    match /adminRequests/{id} {
+      allow get: if (signedIn() && isValidId(id) && uid() == id) || admin();
+      allow list: if admin();
+      allow create: if signedIn() && isValidId(id) && uid() == id
+        && isValidAdminRequest(request.resource.data)
+        && request.resource.data.uid == uid()
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pending'
+        && !exists(/databases/$(database)/documents/admins/$(uid()));
+      allow update: if isValidId(id) && isValidAdminRequest(request.resource.data) && (
+        (signedIn() && uid() == id
+          && request.resource.data.uid == uid()
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.status == 'pending'
+          && resource.data.status != 'approved'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nick', 'status', 'requestedAt', 'reviewedAt', 'reviewedBy']))
+        || (admin()
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.requestedAt == resource.data.requestedAt
+          && (request.resource.data.status == 'approved' || request.resource.data.status == 'rejected')
+          && request.resource.data.reviewedBy == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy']))
+      );
+      allow delete: if (request.auth != null && isValidId(id) && uid() == id) || (admin() && isValidId(id));
+    }
+
+    match /notices/{id} {
+      allow get: if signedIn() && isValidId(id);
+      allow list: if signedIn();
+      allow create: if admin() && isValidId(id)
+        && isValidNotice(request.resource.data)
+        && request.resource.data.createdBy == uid();
+      allow update: if false;
+      allow delete: if admin() && isValidId(id);
     }
   }
 }

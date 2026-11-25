@@ -12,7 +12,7 @@
 <link rel="preload" href="./fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <script src="./js/config.js"></script>
 
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=20261125d">
 </head>
 <body data-page="scene" data-mode="out">
 <a class="skipLink" href="#world">본문으로 바로가기</a>
@@ -41,6 +41,7 @@
     <div id="counts">
       <button class="big" id="login" hidden>로그인</button>
       <button id="adminBtn" aria-label="관리자" title="관리자" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16l1.5-9-5 4-4.5-7-4.5 7-5-4z"/><path d="M5 20.5h14"/></svg></button>
+      <button id="notifBtn" aria-label="알림" title="알림" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><u hidden></u></button>
       <button id="help" aria-label="사용 방법" title="사용 방법">?</button>
       <button id="menu" aria-label="설정" title="설정" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></button>
     </div>
@@ -76,6 +77,7 @@
     <div id="mapCounts">
       <button class="big" id="mapLogin" hidden>로그인</button>
       <button id="mapAdminBtn" aria-label="관리자" title="관리자" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16l1.5-9-5 4-4.5-7-4.5 7-5-4z"/><path d="M5 20.5h14"/></svg></button>
+      <button id="mapNotifBtn" aria-label="알림" title="알림" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><u hidden></u></button>
       <button id="mapHelp" aria-label="사용 방법" title="사용 방법">?</button>
       <button id="mapMenu" aria-label="설정" title="설정" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg></button>
     </div>
@@ -93,12 +95,13 @@
 </section>
 
 <div id="consentBanner" role="region" aria-label="분석 쿠키 동의" hidden></div>
+<div id="notifAlert" class="notifAlert" role="status" aria-live="polite" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <dialog id="sheet"></dialog>
 
-<script src="./js/filter.js"></script>
-<script src="./js/backend.js"></script>
-<script src="./js/app.js"></script>
+<script src="./js/filter.js?v=20261125d"></script>
+<script src="./js/backend.js?v=20261125d"></script>
+<script src="./js/app.js?v=20261125d"></script>
 
 <!-- 지도는 모든 숲·나무·장식·문구를 HTML/SVG 요소로 생성합니다. -->
 </body>

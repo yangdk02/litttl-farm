@@ -7,14 +7,18 @@ function DemoBackend(){
   function hasAnalyticsConsent(){ try{ return localStorage.getItem(CONSENT_KEY)==='granted'; }catch(e){ return false; } }
   function read(k,d){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
   function write(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
-  function seed(){ return {accounts:{},users:{},trees:{},messages:{},clouds:[],invites:{},presence:{},diaries:{},exampleVersion:2}; }
+  function seed(){ return {accounts:{},users:{},trees:{},messages:{},clouds:[],invites:{},presence:{},diaries:{},admins:{},adminRequests:{},notices:[],exampleVersion:2}; }
   db=read(KEY,null)||seed();
   db.diaries=db.diaries||{};
+  db.admins=db.admins||{};
+  db.adminRequests=db.adminRequests||{};
+  db.notices=db.notices||[];
   db.exampleVersion=2;
   function clone(x){ return x==null?null:JSON.parse(JSON.stringify(x)); }
+  function isDemoAdmin(uid,email){ return (email&&String(email).toLowerCase()==='yangdk02@gmail.com')||!!(uid&&db.admins&&db.admins[uid]); }
   function fire(){ subs.forEach(function(s){ s(); }); }
   function commit(){ write(KEY,db); setTimeout(fire,0); }
-  window.addEventListener('storage',function(e){ if(e.key===KEY){ db=read(KEY,db); fire(); } });
+  window.addEventListener('storage',function(e){ if(e.key===KEY){ db=read(KEY,db); db.admins=db.admins||{}; db.adminRequests=db.adminRequests||{}; db.notices=db.notices||[]; fire(); } });
   function sub(fn){ var f=function(){ fn(); }; subs.push(f); setTimeout(f,0); return function(){ subs=subs.filter(function(x){ return x!==f; }); }; }
   function err(code){ var e=new Error(code); e.code=code; return e; }
   function login(u){ session=u; write('littlDemoSession',u); if(authCb) setTimeout(function(){ authCb(u); },0); return u; }
@@ -42,7 +46,7 @@ function DemoBackend(){
     addMessage:function(id,m){ m=clone(m); m.id='m'+Date.now()+Math.random().toString(36).slice(2,6); (db.messages[id]=db.messages[id]||[]).push(m); commit(); return Promise.resolve(); },
     deleteMessage:function(id,mid){ db.messages[id]=(db.messages[id]||[]).filter(function(m){ return m.id!==mid; }); commit(); return Promise.resolve(); },
     watchClouds:function(cb){ return sub(function(){ var now=Date.now(), cutoff=now-24*60*60*1000, prev=db.clouds||[], kept=prev.filter(function(c){ return c.evergreen||c.ts>cutoff; }); if(kept.length!==prev.length){ db.clouds=kept; write(KEY,db); } cb(clone(kept.map(function(c){ var x=clone(c); if(x.evergreen) x.ts=now; return x; }).sort(function(a,b){ return b.ts-a.ts; }).slice(0,80))); }); },
-    addCloud:function(c){ var u=db.users[c.uid], now=Date.now(), adminUser=u&&u.email==='yangdk02@gmail.com'; if(u&&!adminUser&&now-(u.lastCloudAt||0)<24*60*60*1000) return Promise.reject(err('cloud/cooldown')); c=clone(c); c.id='c'+now+Math.random().toString(36).slice(2,6); var cutoff=now-24*60*60*1000; db.clouds=(db.clouds||[]).filter(function(x){ return x.evergreen||x.ts>cutoff; }); db.clouds.push(c); if(u) u.lastCloudAt=now; commit(); return Promise.resolve(clone(c)); },
+    addCloud:function(c){ var u=db.users[c.uid], now=Date.now(), adminUser=isDemoAdmin(c.uid,u&&u.email); if(u&&!adminUser&&now-(u.lastCloudAt||0)<24*60*60*1000) return Promise.reject(err('cloud/cooldown')); c=clone(c); c.id='c'+now+Math.random().toString(36).slice(2,6); var cutoff=now-24*60*60*1000; db.clouds=(db.clouds||[]).filter(function(x){ return x.evergreen||x.ts>cutoff; }); db.clouds.push(c); if(u) u.lastCloudAt=now; commit(); return Promise.resolve(clone(c)); },
     deleteCloud:function(id){ db.clouds=(db.clouds||[]).filter(function(c){ return c.id!==id; }); commit(); return Promise.resolve(); },
     createInvite:function(code,d){ db.invites[code]=clone(d); commit(); return Promise.resolve(); },
     getInvite:function(code){ return Promise.resolve(clone(db.invites[code])); },
@@ -53,6 +57,7 @@ function DemoBackend(){
     beat:function(id,uid){ (db.presence[id]=db.presence[id]||{})[uid]=Date.now(); commit(); return Promise.resolve(); },
     leave:function(id,uid){ if(db.presence[id]) delete db.presence[id][uid]; commit(); return Promise.resolve(); },
     watchPresence:function(id,cb){ return sub(function(){ cb(clone(db.presence[id]||{})); }); },
+    watchDiary:function(id,cb){ return sub(function(){ var d=db.diaries[id]||{}; cb(Object.keys(d).map(function(k){ return Object.assign({docId:k,date:k},clone(d[k])); })); }); },
     listDiary:function(id){ var d=db.diaries[id]||{}; return Promise.resolve(Object.keys(d).map(function(k){ return Object.assign({docId:k,date:k},clone(d[k])); })); },
     saveDiary:function(id,date,entry){ db.diaries[id]=db.diaries[id]||{}; if(entry) db.diaries[id][date]=clone(entry); else delete db.diaries[id][date]; commit(); return Promise.resolve(); },
     deleteAccount:function(){
@@ -66,6 +71,7 @@ function DemoBackend(){
       Object.keys(db.messages).forEach(function(id){ db.messages[id]=(db.messages[id]||[]).filter(function(m){ return m.uid!==uid; }); });
       db.clouds=(db.clouds||[]).filter(function(c){ return c.uid!==uid; });
       Object.keys(db.invites).forEach(function(code){ if(db.invites[code].ownerUid===uid) delete db.invites[code]; });
+      if(db.adminRequests) delete db.adminRequests[uid];
       delete db.users[uid]; session=null; try{ localStorage.removeItem('littlDemoSession'); localStorage.removeItem('littlMine'); }catch(e){} commit(); if(authCb) setTimeout(function(){ authCb(null); },0); return Promise.resolve();
     },
     setAnalyticsConsent:function(granted){
@@ -115,6 +121,8 @@ function DemoBackend(){
       Object.keys(db.messages||{}).forEach(function(id){ db.messages[id]=(db.messages[id]||[]).filter(function(m){ return m.uid!==uid; }); });
       db.clouds=(db.clouds||[]).filter(function(c){ return c.uid!==uid; });
       Object.keys(db.invites||{}).forEach(function(code){ if(db.invites[code].ownerUid===uid) delete db.invites[code]; });
+      if(db.adminRequests) delete db.adminRequests[uid];
+      if(db.admins) delete db.admins[uid];
       delete db.users[uid];
       commit();
       return Promise.resolve({ok:true,deletedTrees:deletedTrees});
@@ -130,6 +138,96 @@ function DemoBackend(){
       Object.keys(db.invites||{}).forEach(function(code){ if(db.invites[code].treeId===treeId) delete db.invites[code]; });
       commit();
       return Promise.resolve({ok:true,clearedUsers:clearedUsers});
+    },
+    watchAdminStatus:function(uid,email,cb){
+      return sub(function(){ cb(isDemoAdmin(uid,email)); });
+    },
+    requestAdminAccess:function(req){
+      if(!req||!req.uid||!req.email) return Promise.reject(err('admin/invalid-request'));
+      db.admins=db.admins||{};
+      db.adminRequests=db.adminRequests||{};
+      if(isDemoAdmin(req.uid,req.email)) return Promise.resolve({ok:true,alreadyAdmin:true});
+      var existing=db.adminRequests[req.uid];
+      if(existing&&existing.status==='pending') return Promise.resolve({ok:true,alreadyPending:true});
+      var next={uid:req.uid,email:req.email,nick:String(req.nick||'회원').slice(0,30),status:'pending',requestedAt:Date.now()};
+      db.adminRequests[req.uid]=next;
+      commit();
+      return Promise.resolve({ok:true,request:clone(next)});
+    },
+    watchMyAdminRequest:function(uid,cb){
+      return sub(function(){ cb(clone((db.adminRequests&&db.adminRequests[uid])||null)); });
+    },
+    watchAdminRequests:function(cb){
+      return sub(function(){
+        var map=db.adminRequests||{};
+        var list=Object.keys(map).map(function(k){ return clone(map[k]); }).sort(function(a,b){ return (b.requestedAt||0)-(a.requestedAt||0); });
+        cb(list);
+      });
+    },
+    approveAdminRequest:function(targetUid,meta){
+      if(!targetUid) return Promise.reject(err('admin/invalid-uid'));
+      db.admins=db.admins||{};
+      db.adminRequests=db.adminRequests||{};
+      var req=db.adminRequests[targetUid]||meta||{};
+      var now=Date.now(), actor=(session&&session.uid)||'admin', actorEmail=(session&&session.email)||'yangdk02@gmail.com';
+      db.admins[targetUid]={uid:targetUid,email:req.email||'',nick:String(req.nick||'회원').slice(0,30),grantedBy:actor,grantedByEmail:actorEmail,grantedAt:now};
+      if(db.adminRequests[targetUid]){
+        db.adminRequests[targetUid]=Object.assign({},db.adminRequests[targetUid],{status:'approved',reviewedAt:now,reviewedBy:actor});
+      }
+      commit();
+      return Promise.resolve({ok:true});
+    },
+    rejectAdminRequest:function(targetUid){
+      if(!targetUid) return Promise.reject(err('admin/invalid-uid'));
+      db.adminRequests=db.adminRequests||{};
+      var now=Date.now(), actor=(session&&session.uid)||'admin';
+      if(db.adminRequests[targetUid]){
+        db.adminRequests[targetUid]=Object.assign({},db.adminRequests[targetUid],{status:'rejected',reviewedAt:now,reviewedBy:actor});
+      }
+      commit();
+      return Promise.resolve({ok:true});
+    },
+    listAdmins:function(){
+      var map=db.admins||{};
+      return Promise.resolve(Object.keys(map).map(function(k){ return clone(map[k]); }).sort(function(a,b){ return (b.grantedAt||0)-(a.grantedAt||0); }));
+    },
+    revokeAdminAccess:function(targetUid){
+      if(!targetUid) return Promise.reject(err('admin/invalid-uid'));
+      if(session&&session.uid===targetUid) return Promise.reject(err('admin/self-revoke'));
+      db.admins=db.admins||{};
+      delete db.admins[targetUid];
+      if(db.adminRequests&&db.adminRequests[targetUid]&&db.adminRequests[targetUid].status==='approved'){
+        db.adminRequests[targetUid]=Object.assign({},db.adminRequests[targetUid],{status:'rejected',reviewedAt:Date.now(),reviewedBy:(session&&session.uid)||'admin'});
+      }
+      commit();
+      return Promise.resolve({ok:true});
+    },
+    watchNotices:function(cb){
+      return sub(function(){
+        var list=(db.notices||[]).slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); }).slice(0,30);
+        cb(clone(list));
+      });
+    },
+    createNotice:function(n){
+      var title=String((n&&n.title)||'').trim().slice(0,60), body=String((n&&n.body)||'').trim().slice(0,600);
+      if(!title||!body) return Promise.reject(err('notice/empty'));
+      var item={
+        id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+        title:title,
+        body:body,
+        createdAt:Date.now(),
+        createdBy:(session&&session.uid)||'admin',
+        createdByName:String((n&&n.createdByName)||'엉클리틀').trim().slice(0,30)||'엉클리틀'
+      };
+      db.notices=db.notices||[];
+      db.notices.push(item);
+      commit();
+      return Promise.resolve(clone(item));
+    },
+    deleteNotice:function(id){
+      db.notices=(db.notices||[]).filter(function(x){ return x.id!==id; });
+      commit();
+      return Promise.resolve({ok:true});
     },
     resetDemo:function(){ db=seed(); analyticsEvents=[]; commit(); return this.signOut(); }
   };
@@ -256,6 +354,10 @@ function LiveBackend(){
           tasks.push(deleteDocs(fsMod.query(fsMod.collection(db,'invites'),fsMod.where('ownerUid','==',uid)),'invites').catch(function(){}));
         }
         tasks.push(deleteDocs(fsMod.query(fsMod.collection(db,'clouds'),fsMod.where('uid','==',uid)),'clouds'));
+        tasks.push(wrapFs(fsMod.deleteDoc(fsMod.doc(db,'adminRequests',uid)),OperationType.DELETE,'adminRequests/'+uid).catch(function(){}));
+        if(isAdminMode){
+          tasks.push(wrapFs(fsMod.deleteDoc(fsMod.doc(db,'admins',uid)),OperationType.DELETE,'admins/'+uid).catch(function(){}));
+        }
         var treePromise;
         if(treeId){
           treePromise=wrapFs(fsMod.getDoc(treeRef(treeId)),OperationType.GET,'trees/'+treeId).then(function(treeSnap){
@@ -282,7 +384,11 @@ function LiveBackend(){
       });
     }
 
-    var ADMIN_EMAIL='yangdk02@gmail.com', purgedCloudIds={}, CONSENT_KEY='litttlAnalyticsConsent';
+    var ADMIN_EMAIL='yangdk02@gmail.com', adminGrantActive=false, purgedCloudIds={}, CONSENT_KEY='litttlAnalyticsConsent';
+    function isCurrentAdmin(){
+      if(!auth.currentUser) return false;
+      return String(auth.currentUser.email||'').trim().toLowerCase()===ADMIN_EMAIL || adminGrantActive;
+    }
     var gtagScriptLoaded=false, gtagConfiguredId='';
     function hasAnalyticsConsent(){ try{ return localStorage.getItem(CONSENT_KEY)==='granted'; }catch(e){ return false; } }
     function getMeasurementId(){
@@ -350,6 +456,7 @@ function LiveBackend(){
       mode:'live',
       onAuth:function(cb){
         return authMod.onAuthStateChanged(auth,function(u){
+          if(!u) adminGrantActive=false;
           if(u) purgeExpiredClouds(Date.now()-24*60*60*1000-5000);
           cb(u?{uid:u.uid,email:u.email,displayName:u.displayName||''}:null);
         });
@@ -458,7 +565,7 @@ function LiveBackend(){
       },
       addCloud:function(c){
         var ur=userRef(c.uid), cr=fsMod.doc(fsMod.collection(db,'clouds'));
-        var isAdminUser=!!(auth.currentUser&&auth.currentUser.email===ADMIN_EMAIL);
+        var isAdminUser=isCurrentAdmin();
         return wrapFs(fsMod.runTransaction(db,function(tx){
           return tx.get(ur).then(function(s){
             var last=s.exists()?(s.data().lastCloudAt||0):0;
@@ -516,6 +623,13 @@ function LiveBackend(){
           try{ handleFirestoreError(error,OperationType.LIST,'trees/'+id+'/presence'); }catch(_){}
         });
       },
+      watchDiary:function(id,cb){
+        return fsMod.onSnapshot(fsMod.collection(db,'trees',id,'diary'),function(snap){
+          cb(snap.docs.map(function(d){ return Object.assign({docId:d.id,date:d.id},d.data()); }));
+        },function(error){
+          try{ handleFirestoreError(error,OperationType.LIST,'trees/'+id+'/diary'); }catch(_){}
+        });
+      },
       listDiary:function(id){
         return wrapFs(fsMod.getDocs(fsMod.collection(db,'trees',id,'diary')),OperationType.LIST,'trees/'+id+'/diary').then(function(snap){
           return snap.docs.map(function(d){ return Object.assign({docId:d.id,date:d.id},d.data()); });
@@ -553,20 +667,118 @@ function LiveBackend(){
         if(gtag) gtag('event',name,Object.assign({},params||{},{send_to:mid}));
         return true;
       },
+      watchAdminStatus:function(uid,email,cb){
+        var primary=!!(email&&String(email).trim().toLowerCase()===ADMIN_EMAIL);
+        if(!uid){ adminGrantActive=false; cb(false); return function(){}; }
+        if(primary){ adminGrantActive=false; cb(true); return function(){}; }
+        return fsMod.onSnapshot(fsMod.doc(db,'admins',uid),function(snap){
+          adminGrantActive=snap.exists();
+          cb(adminGrantActive);
+        },function(){
+          adminGrantActive=false;
+          cb(false);
+        });
+      },
+      requestAdminAccess:function(req){
+        if(!auth.currentUser) return Promise.reject({code:'auth/unauthenticated'});
+        var uid=auth.currentUser.uid, email=auth.currentUser.email||'';
+        if(isCurrentAdmin()) return Promise.resolve({ok:true,alreadyAdmin:true});
+        var ref=fsMod.doc(db,'adminRequests',uid), path='adminRequests/'+uid;
+        var nick=String((req&&req.nick)||auth.currentUser.displayName||'회원').trim().slice(0,30)||'회원';
+        return wrapFs(fsMod.getDoc(ref),OperationType.GET,path).then(function(snap){
+          if(snap.exists()){
+            var cur=snap.data()||{};
+            if(cur.status==='pending') return {ok:true,alreadyPending:true};
+            if(cur.status==='approved') return {ok:true,alreadyApproved:true};
+            return wrapFs(fsMod.updateDoc(ref,{
+              nick:nick,status:'pending',requestedAt:Date.now(),reviewedAt:null,reviewedBy:null
+            }),OperationType.UPDATE,path).then(function(){ return {ok:true}; });
+          }
+          return wrapFs(fsMod.setDoc(ref,{
+            uid:uid,email:email,nick:nick,status:'pending',requestedAt:Date.now()
+          }),OperationType.CREATE,path).then(function(){ return {ok:true}; });
+        });
+      },
+      watchMyAdminRequest:function(uid,cb){
+        if(!uid){ cb(null); return function(){}; }
+        return fsMod.onSnapshot(fsMod.doc(db,'adminRequests',uid),function(snap){
+          cb(snap.exists()?snap.data():null);
+        },function(){ cb(null); });
+      },
+      watchAdminRequests:function(cb){
+        if(!isCurrentAdmin()){ cb([]); return function(){}; }
+        return fsMod.onSnapshot(fsMod.collection(db,'adminRequests'),function(snap){
+          var list=snap.docs.map(function(d){ return Object.assign({uid:d.id},d.data()); })
+            .sort(function(a,b){ return (b.requestedAt||0)-(a.requestedAt||0); });
+          cb(list);
+        },function(error){
+          try{ handleFirestoreError(error,OperationType.LIST,'adminRequests'); }catch(_){}
+        });
+      },
+      approveAdminRequest:function(targetUid,meta){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        if(!targetUid) return Promise.reject({code:'admin/invalid-uid'});
+        var reqRef=fsMod.doc(db,'adminRequests',targetUid), grantRef=fsMod.doc(db,'admins',targetUid);
+        return wrapFs(fsMod.getDoc(reqRef),OperationType.GET,'adminRequests/'+targetUid).then(function(snap){
+          var req=snap.exists()?snap.data():(meta||{});
+          var now=Date.now(), actor=auth.currentUser.uid, actorEmail=auth.currentUser.email||'';
+          var batch=fsMod.writeBatch(db);
+          batch.set(grantRef,{
+            uid:targetUid,
+            email:String(req.email||(meta&&meta.email)||'').slice(0,120),
+            nick:String(req.nick||(meta&&meta.nick)||'회원').slice(0,30),
+            grantedBy:actor,
+            grantedByEmail:String(actorEmail).slice(0,120),
+            grantedAt:now
+          });
+          if(snap.exists()){
+            batch.update(reqRef,{status:'approved',reviewedAt:now,reviewedBy:actor});
+          }
+          return wrapFs(batch.commit(),OperationType.WRITE,'admins/'+targetUid).then(function(){ return {ok:true}; });
+        });
+      },
+      rejectAdminRequest:function(targetUid){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        if(!targetUid) return Promise.reject({code:'admin/invalid-uid'});
+        var reqRef=fsMod.doc(db,'adminRequests',targetUid), path='adminRequests/'+targetUid;
+        return wrapFs(fsMod.updateDoc(reqRef,{
+          status:'rejected',reviewedAt:Date.now(),reviewedBy:auth.currentUser.uid
+        }),OperationType.UPDATE,path).then(function(){ return {ok:true}; });
+      },
+      listAdmins:function(){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        return wrapFs(fsMod.getDocs(fsMod.collection(db,'admins')),OperationType.LIST,'admins').then(function(snap){
+          return snap.docs.map(function(d){ return Object.assign({uid:d.id},d.data()); })
+            .sort(function(a,b){ return (b.grantedAt||0)-(a.grantedAt||0); });
+        });
+      },
+      revokeAdminAccess:function(targetUid){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        if(!targetUid) return Promise.reject({code:'admin/invalid-uid'});
+        if(targetUid===auth.currentUser.uid) return Promise.reject({code:'admin/self-revoke'});
+        var grantRef=fsMod.doc(db,'admins',targetUid), reqRef=fsMod.doc(db,'adminRequests',targetUid);
+        return wrapFs(fsMod.deleteDoc(grantRef),OperationType.DELETE,'admins/'+targetUid).then(function(){
+          return fsMod.getDoc(reqRef).then(function(s){
+            if(s.exists()&&s.data().status==='approved'){
+              return fsMod.updateDoc(reqRef,{status:'rejected',reviewedAt:Date.now(),reviewedBy:auth.currentUser.uid}).catch(function(){});
+            }
+          }).catch(function(){});
+        }).then(function(){ return {ok:true}; });
+      },
       adminListUsers:function(){
-        if(!auth.currentUser||auth.currentUser.email!==ADMIN_EMAIL) return Promise.reject({code:'admin/forbidden'});
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
         return wrapFs(fsMod.getDocs(fsMod.collection(db,'users')),OperationType.LIST,'users').then(function(snap){
           return snap.docs.map(function(d){ return Object.assign({uid:d.id},d.data()); });
         });
       },
       adminCleanupUser:function(uid){
-        if(!auth.currentUser||auth.currentUser.email!==ADMIN_EMAIL) return Promise.reject({code:'admin/forbidden'});
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
         if(!uid) return Promise.reject({code:'admin/invalid-uid'});
         if(uid===auth.currentUser.uid) return Promise.reject({code:'admin/self-delete'});
         return cleanupAccount(uid,{isAdmin:true});
       },
       adminDeleteTree:function(treeId){
-        if(!auth.currentUser||auth.currentUser.email!==ADMIN_EMAIL) return Promise.reject({code:'admin/forbidden'});
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
         if(!treeId) return Promise.reject({code:'admin/invalid-tree'});
         return wrapFs(fsMod.getDocs(fsMod.query(fsMod.collection(db,'users'),fsMod.where('treeId','==',treeId))),OperationType.LIST,'users').then(function(snap){
           return Promise.all(snap.docs.map(function(d){
@@ -576,6 +788,39 @@ function LiveBackend(){
           return deleteTreeDeep(treeRef(treeId),{isAdmin:true}).then(function(){
             return {ok:true,clearedUsers:clearedUsers};
           });
+        });
+      },
+      watchNotices:function(cb){
+        if(!auth.currentUser){ cb([]); return function(){}; }
+        var q=fsMod.query(fsMod.collection(db,'notices'),fsMod.orderBy('createdAt','desc'),fsMod.limit(30));
+        return fsMod.onSnapshot(q,function(snap){
+          cb(snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); }));
+        },function(error){
+          try{ handleFirestoreError(error,OperationType.LIST,'notices'); }catch(_){}
+        });
+      },
+      createNotice:function(n){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        var title=String((n&&n.title)||'').trim().slice(0,60), body=String((n&&n.body)||'').trim().slice(0,600);
+        if(!title||!body) return Promise.reject({code:'notice/empty'});
+        var id='n_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+        var item={
+          id:id,
+          title:title,
+          body:body,
+          createdAt:Date.now(),
+          createdBy:auth.currentUser.uid,
+          createdByName:String((n&&n.createdByName)||'엉클리틀').trim().slice(0,30)||'엉클리틀'
+        };
+        return wrapFs(fsMod.setDoc(fsMod.doc(db,'notices',id),item),OperationType.CREATE,'notices/'+id).then(function(){
+          return item;
+        });
+      },
+      deleteNotice:function(id){
+        if(!isCurrentAdmin()) return Promise.reject({code:'admin/forbidden'});
+        if(!id) return Promise.reject({code:'notice/invalid-id'});
+        return wrapFs(fsMod.deleteDoc(fsMod.doc(db,'notices',id)),OperationType.DELETE,'notices/'+id).then(function(){
+          return {ok:true};
         });
       }
     };
