@@ -657,6 +657,8 @@ test('관리자 전체 공지 발송: 작성, 실시간 구독, 삭제 및 스�
   const css = fs.readFileSync(path.join(rootDir, 'front', 'styles.css'), 'utf8');
   const blueprint = JSON.parse(fs.readFileSync(path.join(rootDir, 'firebase-blueprint.json'), 'utf8'));
   assert.match(appJs, /openAdminNoticeSheet/);
+  assert.match(appJs, /field\('공지 제목','input'/);
+  assert.match(appJs, /field\('공지 내용','textarea'/);
   assert.match(appJs, /전체 공지 보내기/);
   assert.match(appJs, /openNoticeDetail/);
   assert.match(css, /\.noticeDetailBox\{/);

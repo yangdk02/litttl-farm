@@ -2633,14 +2633,10 @@ function openAdminNoticeSheet(){
   sheet.classList.add('adminGuideSheet','adminCleanupSheet','adminNoticeSheet');
 
   var form=el('section','adminNoticeForm');
-  var titleIn=field('공지 제목','예: 수확 체험 안내, 서비스 점검 공지',60);
-  var bodyField=document.createElement('label');
-  bodyField.textContent='공지 내용';
-  var bodyTa=document.createElement('textarea');
-  bodyTa.maxLength=600;
-  bodyTa.rows=4;
+  var titleIn=field('공지 제목','input','',60);
+  titleIn.placeholder='예: 수확 체험 안내, 서비스 점검 공지';
+  var bodyTa=field('공지 내용','textarea','',600,4);
   bodyTa.placeholder='모든 회원에게 전할 공지 내용을 적어 주세요.';
-  bodyField.appendChild(bodyTa);
   var note=formNote();
   var sendWrap=el('div','adminNoticeSendRow');
   var sendBtn=bigBtn('전체 알림 보내기',function(){
@@ -2651,6 +2647,8 @@ function openAdminNoticeSheet(){
     var sender=((meDoc&&meDoc.nick)||'엉클리틀').trim().slice(0,30)||'엉클리틀';
     B.createNotice({title:title,body:body,createdByName:sender}).then(function(){
       titleIn.value=''; bodyTa.value='';
+      titleIn.dispatchEvent(new Event('input'));
+      bodyTa.dispatchEvent(new Event('input'));
       sendBtn.disabled=false; sendBtn.textContent='전체 알림 보내기';
       renderAdminNoticeList();
       toast('전체 회원에게 공지 알림을 보냈어요.');
@@ -2662,7 +2660,7 @@ function openAdminNoticeSheet(){
     });
   });
   sendWrap.appendChild(sendBtn);
-  form.append(titleIn.parentNode,bodyField,note,sendWrap);
+  form.append(titleIn.parentNode,bodyTa.parentNode,note,sendWrap);
   sheet.appendChild(form);
 
   var histSec=el('section','adminShareSection');
